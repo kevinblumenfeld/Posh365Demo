@@ -68,7 +68,6 @@ function Get-MailboxMoveOnPremisesPermissionReport {
         if ($DelegateSplat.Values -contains $false) {
             $DelegateSplat.Add('MailboxList', $MailboxList)
             $DelegateSplat.Add('ADUserList', $ADUserList)
-            Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
             Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv (Join-Path $ReportPath 'MailboxPermissions.csv') -NoTypeInformation -Encoding UTF8
             $MailboxFile = Join-Path $ReportPath 'MailboxPermissions.csv'
         }
