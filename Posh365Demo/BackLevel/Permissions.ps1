@@ -48,7 +48,7 @@ function Get-MailboxMoveOnPremisesPermissionReport {
             ADHashDisplay    = $ADHashDisplay
             ErrorAction      = 'SilentlyContinue'
         }
-        if ($DelegateSplat.Values -contains $false) {
+        if ($false -in $DelegateSplat.Values) {
             try {
                 Import-Module ActiveDirectory -ErrorAction Stop -Verbose:$false
             }
@@ -65,7 +65,7 @@ function Get-MailboxMoveOnPremisesPermissionReport {
         $ADUserList = Get-ADUsersandGroupsWithProxyAddress -DomainNameHash $DomainNameHash
         Write-Verbose "Retrieving all Exchange Mailboxes"
         $MailboxList = Get-Mailbox -ResultSize unlimited
-        if ($DelegateSplat.Values -contains $false) {
+        if ($false -in $DelegateSplat.Values) {
             $DelegateSplat.Add('MailboxList', $MailboxList)
             $DelegateSplat.Add('ADUserList', $ADUserList)
             Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
