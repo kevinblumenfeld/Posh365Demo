@@ -48,30 +48,17 @@ function Get-MailboxMoveOnPremisesPermissionReport {
             ADHashDisplay    = $ADHashDisplay
             ErrorAction      = 'SilentlyContinue'
         }
-        if ($false -in $DelegateSplat.Values) {
-            try {
-                Import-Module ActiveDirectory -ErrorAction Stop -Verbose:$false
-            }
-            catch {
-                Write-Host "This module depends on the ActiveDirectory module."
-                Write-Host "Please download and install from https://www.microsoft.com/en-us/download/details.aspx?id=45520"
-                Write-Host "or run Connect-Exchange from a server with the Active Directory Module installed"
-                throw
-            }
-        }
         $DomainNameHash = Get-DomainNameHash
         Write-Verbose "Importing Active Directory Users and Groups that have at least one proxy address"
 
         $ADUserList = Get-ADUsersandGroupsWithProxyAddress -DomainNameHash $DomainNameHash
         Write-Verbose "Retrieving all Exchange Mailboxes"
         $MailboxList = Get-Mailbox -ResultSize unlimited
-        if ($false -in $DelegateSplat.Values) {
-            $DelegateSplat.Add('MailboxList', $MailboxList)
-            $DelegateSplat.Add('ADUserList', $ADUserList)
-            Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
-            Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv (Join-Path $ReportPath 'MailboxPermissions.csv') -NoTypeInformation -Encoding UTF8
-            $MailboxFile = Join-Path $ReportPath 'MailboxPermissions.csv'
-        }
+        $DelegateSplat.Add('MailboxList', $MailboxList)
+        $DelegateSplat.Add('ADUserList', $ADUserList)
+        Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
+        Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv (Join-Path $ReportPath 'MailboxPermissions.csv') -NoTypeInformation -Encoding UTF8
+        $MailboxFile = Join-Path $ReportPath 'MailboxPermissions.csv'
         if (-not $SkipFolderPerms) {
             $FolderPermSplat = @{
                 MailboxList   = $MailboxList
