@@ -48,17 +48,30 @@ function Get-MailboxMoveOnPremisesPermissionReport {
             ADHashDisplay    = $ADHashDisplay
             ErrorAction      = 'SilentlyContinue'
         }
+        if ($DelegateSplat.Values -contains $false) {
+            try {
+                Import-Module ActiveDirectory -ErrorAction Stop -Verbose:$false
+            }
+            catch {
+                Write-Host "This module depends on the ActiveDirectory module."
+                Write-Host "Please download and install from https://www.microsoft.com/en-us/download/details.aspx?id=45520"
+                Write-Host "or run Connect-Exchange from a server with the Active Directory Module installed"
+                throw
+            }
+        }
         $DomainNameHash = Get-DomainNameHash
         Write-Verbose "Importing Active Directory Users and Groups that have at least one proxy address"
 
         $ADUserList = Get-ADUsersandGroupsWithProxyAddress -DomainNameHash $DomainNameHash
         Write-Verbose "Retrieving all Exchange Mailboxes"
         $MailboxList = Get-Mailbox -ResultSize unlimited
-        $DelegateSplat.Add('MailboxList', $MailboxList)
-        $DelegateSplat.Add('ADUserList', $ADUserList)
-        Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
-        Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv (Join-Path $ReportPath 'MailboxPermissions.csv') -NoTypeInformation -Encoding UTF8
-        $MailboxFile = Join-Path $ReportPath 'MailboxPermissions.csv'
+        if ($DelegateSplat.Values -contains $false) {
+            $DelegateSplat.Add('MailboxList', $MailboxList)
+            $DelegateSplat.Add('ADUserList', $ADUserList)
+            Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
+            Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv (Join-Path $ReportPath 'MailboxPermissions.csv') -NoTypeInformation -Encoding UTF8
+            $MailboxFile = Join-Path $ReportPath 'MailboxPermissions.csv'
+        }
         if (-not $SkipFolderPerms) {
             $FolderPermSplat = @{
                 MailboxList   = $MailboxList
@@ -331,6 +344,132 @@ function Get-MailboxMoveFolderPermission {
         $MailboxList | Get-MailboxFolderPerms @FolderPermSplat | Select-Object $FolderSelect
     }
 }
+function Get-MailboxFolderPerms {
+    [CmdletBinding()]
+    Param (
+        [parameter(ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+        $MailboxList,
+
+        [parameter()]
+        [hashtable]
+        $ADHashDisplayName,
+
+        [parameter()]
+        [hashtable]
+        $ADHashType,
+
+        [parameter()]
+        [hashtable]
+        $ADHashDisplay
+    )
+    begin {
+
+    }
+    process {
+        foreach ($Mailbox in $MailboxList) {
+            Write-Verbose "Inspecting: `t $Mailbox"
+            $StatSplat = @{
+                Identity    = $Mailbox.UserPrincipalName
+                ErrorAction = 'SilentlyContinue'
+            }
+            $Calendar = (($Mailbox.SamAccountName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Calendar | Select-Object -First 1).Name)
+            $Inbox = (($Mailbox.SamAccountName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Inbox | Select-Object -First 1).Name)
+            $SentItems = (($Mailbox.SamAccountName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope SentItems | Select-Object -First 1).Name)
+            $Contacts = (($Mailbox.SamAccountName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Contacts | Select-Object -First 1).Name)
+            $CalAccessList = Get-MailboxFolderPermission $Calendar | Where-Object {
+                $_.User -notmatch 'Default' -and
+                $_.User -notmatch 'Anonymous' -and
+                $_.User -notlike 'NT User:*' -and
+                $_.AccessRights -notmatch 'None'
+            }
+            If ($CalAccessList) {
+                Foreach ($CalAccess in $CalAccessList) {
+                    New-Object -TypeName psobject -property @{
+                        Object             = $Mailbox.DisplayName
+                        UserPrincipalName  = $Mailbox.UserPrincipalName
+                        PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
+                        Folder             = 'CALENDAR'
+                        AccessRights       = ($CalAccess.AccessRights) -join ','
+                        Granted            = $CalAccess.User
+                        GrantedUPN         = $ADHashDisplayName."$($CalAccess.User)".UserPrincipalName
+                        GrantedSMTP        = $ADHashDisplayName."$($CalAccess.User)".PrimarySMTPAddress
+                        TypeDetails        = $ADHashType."$($ADHashDisplayName."$($CalAccess.User)".msExchRecipientTypeDetails)"
+                        DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($CalAccess.User)".msExchRecipientDisplayType)"
+                    }
+                }
+            }
+            $InboxAccessList = Get-MailboxFolderPermission $Inbox | Where-Object {
+                $_.User -notmatch 'Default' -and
+                $_.User -notmatch 'Anonymous' -and
+                $_.User -notlike 'NT User:*' -and
+                $_.AccessRights -notmatch 'None'
+            }
+            If ($InboxAccessList) {
+                Foreach ($InboxAccess in $InboxAccessList) {
+                    New-Object -TypeName psobject -property @{
+                        Object             = $Mailbox.DisplayName
+                        UserPrincipalName  = $Mailbox.UserPrincipalName
+                        PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
+                        Folder             = 'INBOX'
+                        AccessRights       = ($InboxAccess.AccessRights) -join ','
+                        Granted            = $InboxAccess.User
+                        GrantedUPN         = $ADHashDisplayName."$($InboxAccess.User)".UserPrincipalName
+                        GrantedSMTP        = $ADHashDisplayName."$($InboxAccess.User)".PrimarySMTPAddress
+                        TypeDetails        = $ADHashType."$($ADHashDisplayName."$($InboxAccess.User)".msExchRecipientTypeDetails)"
+                        DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($InboxAccess.User)".msExchRecipientDisplayType)"
+                    }
+                }
+            }
+            $SentAccessList = Get-MailboxFolderPermission $SentItems | Where-Object {
+                $_.User -notmatch 'Default' -and
+                $_.User -notmatch 'Anonymous' -and
+                $_.User -notlike 'NT User:*' -and
+                $_.AccessRights -notmatch 'None'
+            }
+            If ($SentAccessList) {
+                Foreach ($SentAccess in $SentAccessList) {
+                    New-Object -TypeName psobject -property @{
+                        Object             = $Mailbox.DisplayName
+                        UserPrincipalName  = $Mailbox.UserPrincipalName
+                        PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
+                        Folder             = 'SENTITEMS'
+                        AccessRights       = ($SentAccess.AccessRights) -join ','
+                        Granted            = $SentAccess.User
+                        GrantedUPN         = $ADHashDisplayName."$($SentAccess.User)".UserPrincipalName
+                        GrantedSMTP        = $ADHashDisplayName."$($SentAccess.User)".PrimarySMTPAddress
+                        TypeDetails        = $ADHashType."$($ADHashDisplayName."$($SentAccess.User)".msExchRecipientTypeDetails)"
+                        DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($SentAccess.User)".msExchRecipientDisplayType)"
+                    }
+                }
+            }
+            $ContactsAccessList = Get-MailboxFolderPermission $Contacts | Where-Object {
+                $_.User -notmatch 'Default' -and
+                $_.User -notmatch 'Anonymous' -and
+                $_.User -notlike 'NT User:*' -and
+                $_.AccessRights -notmatch 'None'
+            }
+            If ($ContactsAccessList) {
+                Foreach ($ContactsAccess in $ContactsAccessList) {
+                    New-Object -TypeName psobject -property @{
+                        Object             = $Mailbox.DisplayName
+                        UserPrincipalName  = $Mailbox.UserPrincipalName
+                        PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
+                        Folder             = 'CONTACTS'
+                        AccessRights       = ($ContactAccess.AccessRights) -join ','
+                        Granted            = $ContactAccess.User
+                        GrantedUPN         = $ADHashDisplayName."$($ContactAccess.User)".UserPrincipalName
+                        GrantedSMTP        = $ADHashDisplayName."$($ContactAccess.User)".PrimarySMTPAddress
+                        TypeDetails        = $ADHashType."$($ADHashDisplayName."$($ContactAccess.User)".msExchRecipientTypeDetails)"
+                        DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($ContactAccess.User)".msExchRecipientDisplayType)"
+                    }
+                }
+            }
+        }
+    }
+    end {
+
+    }
+}
 
 function Get-ADHashDisplayName {
 
@@ -353,6 +492,75 @@ function Get-ADHashDisplayName {
     }
     end {
         $ADHashDisplayName
+    }
+}
+Function Get-ADHashCN {
+    param (
+        [parameter(ValueFromPipeline = $true)]
+        $ADUserList
+    )
+    begin {
+        $ADHashCN = @{ }
+    }
+    process {
+        foreach ($ADUser in $ADUserList) {
+            $ADHashCN[$ADUser.CanonicalName] = @{
+                DisplayName                = $ADUser.DisplayName
+                UserPrincipalName          = $ADUser.UserPrincipalName
+                Logon                      = $ADUser.logon
+                PrimarySMTPAddress         = $ADUser.PrimarySMTPAddress
+                msExchRecipientTypeDetails = $ADUser.msExchRecipientTypeDetails
+                msExchRecipientDisplayType = $ADUser.msExchRecipientDisplayType
+            }
+        }
+    }
+    end {
+        $ADHashCN
+    }
+}
+Function Get-ADHashDN {
+    param (
+        [parameter(ValueFromPipeline = $true)]
+        $MailboxList
+    )
+    begin {
+        $ADHashDN = @{ }
+    }
+    process {
+        foreach ($Mailbox in $MailboxList) {
+            $ADHashDN[$Mailbox.DistinguishedName] = @{
+                DisplayName        = $Mailbox.DisplayName
+                UserPrincipalName  = $Mailbox.UserPrincipalName
+                Logon              = $Mailbox.logon
+                PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
+            }
+        }
+    }
+    end {
+        $ADHashDN
+    }
+}
+Function Get-ADHash {
+    param (
+        [parameter(ValueFromPipeline = $true)]
+        $ADUserList
+    )
+    begin {
+        $ADHash = @{ }
+    }
+    process {
+        foreach ($ADUser in $ADUserList) {
+            $ADHash[$ADUser.logon] = @{
+                DisplayName                = $ADUser.DisplayName
+                UserPrincipalName          = $ADUser.UserPrincipalName
+                PrimarySMTPAddress         = $ADUser.PrimarySMTPAddress
+                msExchRecipientTypeDetails = $ADUser.msExchRecipientTypeDetails
+                msExchRecipientDisplayType = $ADUser.msExchRecipientDisplayType
+            }
+        }
+    }
+    end {
+        $ADHash
     }
 }
 
@@ -378,6 +586,173 @@ Function ConvertTo-NetBios {
         $result.Properties["netbiosname"]
     }
 
+}
+function Get-SendAsPerms {
+    [CmdletBinding()]
+    Param (
+        [parameter(ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+        $DistinguishedName,
+
+        [parameter()]
+        [hashtable]
+        $ADHashDN,
+
+        [parameter()]
+        [hashtable]
+        $ADHash,
+
+        [parameter()]
+        [hashtable]
+        $ADHashType,
+
+        [parameter()]
+        [hashtable]
+        $ADHashDisplay
+    )
+    process {
+        foreach ($DN in $DistinguishedName) {
+            Write-Verbose "Inspecting:`t $DN"
+            Get-ADPermission $DN | Where-Object {
+                $_.ExtendedRights -like "*Send-As*" -and
+                ($_.IsInherited -eq $false) -and
+                !($_.User -like "NT AUTHORITY\SELF") -and
+                !($_.User.tostring().startswith('S-1-5-21-')) -and
+                !$_.Deny
+            } | ForEach-Object {
+                Write-Verbose "Has Send As:`t $($_.User)"
+                New-Object -TypeName psobject -property @{
+                    Object             = $ADHashDN["$DN"].DisplayName
+                    UserPrincipalName  = $ADHashDN["$DN"].UserPrincipalName
+                    PrimarySMTPAddress = $ADHashDN["$DN"].PrimarySMTPAddress
+                    Granted            = $ADHash["$($_.User)"].DisplayName
+                    GrantedUPN         = $ADHash["$($_.User)"].UserPrincipalName
+                    GrantedSMTP        = $ADHash["$($_.User)"].PrimarySMTPAddress
+                    Checking           = $_.User
+                    TypeDetails        = $ADHashType."$($ADHash["$($_.User)"].msExchRecipientTypeDetails)"
+                    DisplayType        = $ADHashDisplay."$($ADHash["$($_.User)"].msExchRecipientDisplayType)"
+                    Permission         = "SendAs"
+                }
+            }
+        }
+    }
+    end {
+
+    }
+}
+
+function Get-SendOnBehalfPerms {
+    [CmdletBinding()]
+    Param (
+        [parameter(ValueFromPipeline = $true)]
+        $MailboxList,
+
+        [parameter()]
+        [hashtable]
+        $ADHashDN,
+
+        [parameter()]
+        [hashtable]
+        $ADHashCN,
+
+        [parameter()]
+        [hashtable]
+        $ADHashType,
+
+        [parameter()]
+        [hashtable]
+        $ADHashDisplay
+    )
+    begin {
+
+    }
+    process {
+        foreach ($Mailbox in $MailboxList) {
+            Write-Verbose "Inspecting: `t $Mailbox"
+            $Display = New-Object System.Collections.Generic.List[string]
+            $UPN = New-Object System.Collections.Generic.List[string]
+            $SMTP = New-Object System.Collections.Generic.List[string]
+            foreach ($GrantedSOB in $Mailbox.GrantSendOnBehalfTo) {
+                $DisplayName = $ADHashCN["$GrantedSOB"].DisplayName
+                $Display.Add($ADHashCN["$GrantedSOB"].DisplayName)
+                $UPN.Add($ADHashCN["$GrantedSOB"].UserPrincipalName)
+                $SMTP.Add($ADHashCN["$GrantedSOB"].PrimarySMTPAddress)
+                Write-Verbose "Has Send On Behalf DN: `t $DisplayName"
+                Write-Verbose "                   CN: `t $GrantedSOB"
+            }
+            New-Object -TypeName psobject -property @{
+                Object             = $Mailbox.DisplayName
+                UserPrincipalName  = $Mailbox.UserPrincipalName
+                PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
+                Granted            = $Display -join '|'
+                GrantedUPN         = $UPN -join '|'
+                GrantedSMTP        = $SMTP -join '|'
+                Checking           = $GrantedSOB
+                TypeDetails        = $ADHashType."$($ADHashCN["$GrantedSOB"].msExchRecipientTypeDetails)"
+                DisplayType        = $ADHashDisplay."$($ADHashCN["$GrantedSOB"].msExchRecipientDisplayType)"
+                Permission         = "SendOnBehalf"
+            }
+        }
+    }
+    end {
+
+    }
+}
+
+function Get-FullAccessPerms {
+
+    [CmdletBinding()]
+    Param (
+        [parameter(ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+        $ADUserList,
+
+        [parameter()]
+        [hashtable]
+        $ADHashDN,
+
+        [parameter()]
+        [hashtable]
+        $ADHash,
+
+        [parameter()]
+        [hashtable]
+        $ADHashType,
+
+        [parameter()]
+        [hashtable]
+        $ADHashDisplay
+    )
+    begin {
+
+    }
+    process {
+        foreach ($ADUser in $ADUserList) {
+            Write-Verbose "Inspecting:`t $ADUser"
+            Get-MailboxPermission $ADUser |
+            Where-Object {
+                $_.AccessRights -like "*FullAccess*" -and
+                !$_.IsInherited -and !$_.user.tostring().startswith('S-1-5-21-') -and
+                !$_.user.tostring().startswith('NT AUTHORITY\SELF') -and
+                !$_.Deny
+            } | ForEach-Object {
+                Write-Verbose "Has Full Access:`t$($_.User)"
+                New-Object -TypeName psobject -property @{
+                    Object             = $ADHashDN["$ADUser"].DisplayName
+                    UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
+                    PrimarySMTPAddress = $ADHashDN["$ADUser"].PrimarySMTPAddress
+                    Granted            = $ADHash["$($_.User)"].DisplayName
+                    GrantedUPN         = $ADHash["$($_.User)"].UserPrincipalName
+                    GrantedSMTP        = $ADHash["$($_.User)"].PrimarySMTPAddress
+                    Checking           = $_.User
+                    TypeDetails        = $ADHashType."$($ADHash["$($_.User)"].msExchRecipientTypeDetails)"
+                    DisplayType        = $ADHashDisplay."$($ADHash["$($_.User)"].msExchRecipientDisplayType)"
+                    Permission         = "FullAccess"
+                }
+            }
+        }
+    }
+    end {
+
+    }
 }
 
 function Connect-Exchange {
