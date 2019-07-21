@@ -6,6 +6,6 @@ Install-Module Posh365 -Force -Scope CurrentUser -Confirm:$false
 Install-Module Posh365 -Force -Scope CurrentUser -Confirm:$false
 Install-ModuleOnServer -Server DC01
 
-# Problems? Run 'powerShell as administrator' and...
+# Problems? Run 'powerShell as administrator' and run this:
 Set-ExecutionPolicy RemoteSigned -Force
 
