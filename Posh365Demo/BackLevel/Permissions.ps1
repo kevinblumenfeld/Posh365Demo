@@ -48,17 +48,6 @@ function Get-MailboxMoveOnPremisesPermissionReport {
             ADHashDisplay    = $ADHashDisplay
             ErrorAction      = 'SilentlyContinue'
         }
-        if ($DelegateSplat.Values -contains $false) {
-            try {
-                Import-Module ActiveDirectory -ErrorAction Stop -Verbose:$false
-            }
-            catch {
-                Write-Host "This module depends on the ActiveDirectory module."
-                Write-Host "Please download and install from https://www.microsoft.com/en-us/download/details.aspx?id=45520"
-                Write-Host "or run Connect-Exchange from a server with the Active Directory Module installed"
-                throw
-            }
-        }
         $DomainNameHash = Get-DomainNameHash
         Write-Verbose "Importing Active Directory Users and Groups that have at least one proxy address"
 
@@ -206,14 +195,6 @@ function Get-ADUsersAndGroupsWithProxyAddress {
         [Parameter()]
         [hashtable] $DomainNameHash
     )
-    try {
-        import-module activedirectory -ErrorAction Stop -Verbose:$false
-    }
-    catch {
-        Write-Host "This module depends on the ActiveDirectory module."
-        Write-Host "Please download and install from https://www.microsoft.com/en-us/download/details.aspx?id=45520"
-        throw
-    }
 
     # Find writable Global Catalog
     $context = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest')
