@@ -2,7 +2,7 @@
 # Set Execution Policy (one-time task)
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 
-# Install Posh365. Requires Win10 or Win2016. Select [Y] to install
+# Install Posh365. Requires Win10 or Win2016. Type "Y" when prompted.
 Install-Module Posh365 -Force -Scope CurrentUser
 
 # Remotely install Posh365 on older OS. Requires access to remote computer's C$
