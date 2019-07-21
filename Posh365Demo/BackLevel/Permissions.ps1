@@ -3,10 +3,8 @@ if (-not (Get-Module ActiveDirectory -listavailable)) {
     Write-Host "Please run from a computer with AD module" -ForegroundColor Red
     break
 }
-$Exec = Get-ExecutionPolicy
-if ($Exec -eq 'Restricted') {
-    Set-ExecutionPolicy -ExecutionPolicy Bypass -Force -Confirm:$false -ErrorAction SilentlyContinue
-}
+
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
 
 function Get-MailboxMoveOnPremisesPermissionReport {
     [CmdletBinding()]
