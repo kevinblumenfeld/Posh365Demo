@@ -90,9 +90,14 @@ function Get-MailboxMoveOnPremisesPermissionReport {
             AutoSize                = $true
             BoldTopRow              = $true
             ClearSheet              = $true
-            ErrorAction             = 'SilentlyContinue'
+            ErrorAction             = 'stop'
         }
-        $MailboxFile, $FolderFile | Where-Object { $_ } | ForEach-Object { Import-Csv $_ | Export-Excel @ExcelSplat -WorksheetName ($_ -replace '.+\\|permissions\.csv') }
+        try {
+            $MailboxFile, $FolderFile | Where-Object { $_ } | ForEach-Object { Import-Csv $_ | Export-Excel @ExcelSplat -WorksheetName ($_ -replace '.+\\|permissions\.csv') }
+        }
+        catch {
+            $_.Exception.Message
+        }
     }
 }
 
@@ -414,11 +419,17 @@ $InstallSplat = @{
     Name        = 'ImportExcel'
     Scope       = 'CurrentUser'
     Force       = $true
-    ErrorAction = 'SilentlyContinue'
+    ErrorAction = 'stop'
     Confirm     = $false
 }
 
-Install-Module @InstallSplat
+try {
+    Install-Module @InstallSplat
+}
+catch {
+    $_.Exception.Message
+}
+
 
 function Get-Answer {
     $Answer = Read-Host "Connect to Exchange Server? (Y/N)"

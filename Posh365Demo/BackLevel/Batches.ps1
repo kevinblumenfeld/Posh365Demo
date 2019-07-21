@@ -36,9 +36,14 @@ Function Get-MailboxMoveOnPremisesMailboxReport {
             BoldTopRow              = $true
             ClearSheet              = $true
             WorksheetName           = 'Batches'
-            ErrorAction             = 'SilentlyContinue'
+            ErrorAction             = 'stop'
         }
-        $BatchesFile | Where-Object { $_ } | ForEach-Object { Import-Csv $_ | Export-Excel @ExcelSplat }
+        try {
+            $BatchesFile | Where-Object { $_ } | ForEach-Object { Import-Csv $_ | Export-Excel @ExcelSplat }
+        }
+        catch {
+            $_.Exception.Message
+        }
     }
 }
 
@@ -243,11 +248,18 @@ $InstallSplat = @{
     Name        = 'ImportExcel'
     Scope       = 'CurrentUser'
     Force       = $true
-    ErrorAction = 'SilentlyContinue'
+    ErrorAction = 'stop'
     Confirm     = $false
 }
 
-Install-Module @InstallSplat
+try {
+    Install-Module @InstallSplat
+}
+catch {
+    $_.Exception.Message
+}
+
+
 
 function Get-Answer {
     $Answer = Read-Host "Connect to Exchange Server? (Y/N)"
