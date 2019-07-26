@@ -6,5 +6,6 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 Install-Module Posh365 -Force -Scope CurrentUser
 
 # Remotely install Posh365 on older OS. Requires access to remote computer's C$
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 Install-Module Posh365 -Force -Scope CurrentUser
 Install-ModuleOnServer -Server DC01  # modify server name

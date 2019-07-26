@@ -6,6 +6,7 @@ New-MailboxMove -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin'
 
 # Get
 Get-MailboxMove
+Get-MailboxMove -IncludeCompleted
 
 # Set
 Set-MailboxMove -LargeItemLimit 100 -BadItemLimit 200
