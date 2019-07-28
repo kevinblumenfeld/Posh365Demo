@@ -1,3 +1,5 @@
+# Connect (if you haven't already)
+Connect-CloudMFA mkevin
 
 # Move Statistics
 Get-MailboxMoveStatistics

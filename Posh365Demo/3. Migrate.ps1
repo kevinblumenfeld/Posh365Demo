@@ -3,6 +3,7 @@ Connect-CloudMFA mkevin
 
 # New
 New-MailboxMove -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin' -ExcelFile 'Batches.xlsx' -Tenant mkevin -RemoteHost mail.oktakevin.com
+New-MailboxMove -MailboxCSV 'c:\scripts\Batches.csv' -RemoteHost mail.oktakevin.com -Tenant mkevin # To use CSV
 
 # Get
 Get-MailboxMove
