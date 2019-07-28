@@ -3,13 +3,13 @@ Connect-CloudMFA mkevin
 Connect-CloudMFA mkevin -AzureAD # minimum for licensing cmdlets
 
 # Set Licenses
-Set-MailboxMoveLicense -SharePointURL https://CoreBTStest.sharepoint.com/sites/mkevin -ExcelFile Batches.xlsx -Tenant mkevin
+Set-MailboxMoveLicense -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin' -ExcelFile Batches.xlsx -Tenant mkevin
 
 # To use CSV instead
 Set-MailboxMoveLicense -MailboxCSV 'C:\scripts\Batches.csv'
 
 # Get License Report for user(s)
-Get-MailboxMoveLicense -SharePointURL https://CoreBTStest.sharepoint.com/sites/mkevin -ExcelFile Batches.xlsx -Tenant mkevin
+Get-MailboxMoveLicense -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin' -ExcelFile Batches.xlsx -Tenant mkevin
 
 # To use CSV instead
 Get-MailboxMoveLicense -MailboxCSV 'C:\scripts\Batches.csv'
