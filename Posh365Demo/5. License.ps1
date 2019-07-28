@@ -12,7 +12,7 @@ Set-MailboxMoveLicense -MailboxCSV 'C:\scripts\Batches.csv'
 Get-MailboxMoveLicense -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin' -ExcelFile 'Batches.xlsx'
 
 # To use CSV instead
-Get-MailboxMoveLicense -MailboxCSV 'C:\scripts\Batches.csv' # to use a CSV instead of Excel
+Get-MailboxMoveLicense -MailboxCSV 'C:\scripts\Batches.csv'
 
 # Tenant License Count
 Get-MailboxMoveLicenseCount
