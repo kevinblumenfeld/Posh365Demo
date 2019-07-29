@@ -1,4 +1,3 @@
-
 # Connect to Exchange Online
 Connect-CloudMFA -Tenant Contoso -ExchangeOnline
 
@@ -13,3 +12,6 @@ Connect-CloudMFA -Tenant Contoso -Compliance
 
 # Connect to SharePoint
 Connect-CloudMFA -Tenant Contoso -SharePoint
+
+# For Mailbox Move cmdlets simply type
+Connect-CloudMFA Contoso
