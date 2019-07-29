@@ -16,3 +16,7 @@ Get-MailboxMoveLicense -MailboxCSV 'C:\scripts\Batches.csv'
 
 # Tenant License Count
 Get-MailboxMoveLicenseCount
+
+# Detailed Tenant License Report. Per User, Per Sku, Per Option.
+Connect-CloudMFA -Tenant Contoso -MSOnline
+Get-MailboxMoveLicenseReport -Path 'C:\scripts'
