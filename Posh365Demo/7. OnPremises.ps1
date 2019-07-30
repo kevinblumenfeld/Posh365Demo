@@ -1,8 +1,8 @@
 # You can always use the code from section: "0. Links.md". found here: http://bit.ly/Posh365Demo
-# Instead, these cmdlets can be used if Posh365 is installed Posh365 on computer with Active Directory
+# Instead, these cmdlets can be used if Posh365 is installed on a computer with Active Directory
 
-# Create Batches.xlsx - copy code from http://bit.ly/corebatches and paste on any server with AD
+# Create Batches.xlsx when Posh 365 is installed on a computer with Active Directory installed
 Get-MailboxMoveOnPremisesMailboxReport
 
-# Create Permissions.xlsx - copy code from http://bit.ly/corepermissions and paste on any server with AD
+# Create Permissions.xlsx when Posh 365 is installed on a computer with Active Directory installed
 Get-MailboxMoveOnPremisesPermissionReport
