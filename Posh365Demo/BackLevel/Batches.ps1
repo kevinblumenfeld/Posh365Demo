@@ -15,7 +15,7 @@ Function Get-MailboxMoveOnPremisesMailboxReport {
         New-Item -ItemType Directory -Path $ReportPath -ErrorAction SilentlyContinue
         $BatchesFile = Join-Path $ReportPath 'Batches.csv'
         $Select = @(
-            'BatchName', 'DisplayName', 'OrganizationalUnit', 'CompleteBatchDate'
+            'BatchName', 'DisplayName', 'OrganizationalUnit', 'IsMigrated', 'CompleteBatchDate'
             'CompleteBatchTimePT', 'MailboxGB', 'ArchiveGB', 'DeletedGB', 'TotalGB'
             'LastLogonTime', 'ItemCount', 'UserPrincipalName', 'PrimarySmtpAddress'
             'AddressBookPolicy', 'RetentionPolicy', 'AccountDisabled', 'Alias'
@@ -58,6 +58,7 @@ Function Get-MailboxMoveOnPremisesReportHelper {
                 BatchName            = ''
                 DisplayName          = $Mailbox.DisplayName
                 OrganizationalUnit   = $Mailbox.OrganizationalUnit
+                IsMigrated           = ''
                 CompleteBatchDate    = ''
                 CompleteBatchTimePT  = ''
                 MailboxGB            = $Statistic.MailboxGB
@@ -80,8 +81,8 @@ Function Get-MailboxMoveOnPremisesReportHelper {
             }
             if ($Mailbox.ForwardingAddress) {
                 $Distinguished = Convert-CanonicalToDistinguished -CanonicalName $Mailbox.ForwardingAddress
-                $PSHash.Add('ForwardingAddress', $RecHash.$Distinguished.PrimarySmtpAddress)
-                $PSHash.Add('ForwardingRecipientType', $RecHash.$Distinguished.RecipientTypeDetails)
+                $PSHash.Add('ForwardingAddress', $RecHash[$Distinguished].PrimarySmtpAddress)
+                $PSHash.Add('ForwardingRecipientType', $RecHash[$Distinguished].RecipientTypeDetails)
                 $PSHash.Add('DeliverToMailboxAndForward', $Mailbox.DeliverToMailboxAndForward)
             }
             else {
@@ -217,11 +218,11 @@ function Connect-Exchange {
 
     if (-not ($null = Test-Path $CredFile)) {
         [System.Management.Automation.PSCredential]$Credential = Get-Credential -Message 'Enter on-premises Exchange username and password'
-        [System.Management.Automation.PSCredential]$Credential | Export-CliXml -Path $CredFile
-        [System.Management.Automation.PSCredential]$Credential = Import-CliXml -Path $CredFile
+        [System.Management.Automation.PSCredential]$Credential | Export-Clixml -Path $CredFile
+        [System.Management.Automation.PSCredential]$Credential = Import-Clixml -Path $CredFile
     }
     else {
-        [System.Management.Automation.PSCredential]$Credential = Import-CliXml -Path $CredFile
+        [System.Management.Automation.PSCredential]$Credential = Import-Clixml -Path $CredFile
     }
     $SessionSplat = @{
         Name              = "OnPremExchange"
