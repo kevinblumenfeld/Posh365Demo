@@ -2,7 +2,7 @@
 Connect-CloudMFA mkevin
 
 # Get Mailbox and Folder Permissions for requested users
-Get-MailboxMovePermission -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin' -ExcelFile Batches.xlsx -Tenant mkevin
+Get-MailboxMovePermission -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin' -ExcelFile Batches.xlsx
 
 # Add to Exchange Online Mailbox and Folder Permissions for requested users
-Add-MailboxMovePermission -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin' -ExcelFile Batches.xlsx -Tenant mkevin
+Add-MailboxMovePermission -SharePointURL 'https://CoreBTStest.sharepoint.com/sites/mkevin' -ExcelFile Batches.xlsx
