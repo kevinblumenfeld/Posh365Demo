@@ -3,7 +3,7 @@ if (-not (Get-Module ActiveDirectory -listavailable)) {
     Write-Host "Please run from a computer with AD module" -ForegroundColor Red
     break
 }
-Import-Module ActiveDirectory -force
+
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
 
 function Get-MailboxMoveOnPremisesPermissionReport {
@@ -55,8 +55,8 @@ function Get-MailboxMoveOnPremisesPermissionReport {
         if ($DelegateSplat.Values -contains $false) {
             $DelegateSplat.Add('MailboxList', $MailboxList)
             $DelegateSplat.Add('ADUserList', $ADUserList)
-            Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv (Join-Path $ReportPath 'MailboxPermissions.csv') -NoTypeInformation -Encoding UTF8
-            $MailboxFile = Join-Path $ReportPath 'MailboxPermissions.csv'
+            Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv (Join-Path $ReportPath 'ApplyMailboxPermissions.csv') -NoTypeInformation -Encoding UTF8
+            $MailboxFile = Join-Path $ReportPath 'ApplyMailboxPermissions.csv'
         }
         if (-not $SkipFolderPerms) {
             $FolderPermSplat = @{
@@ -66,8 +66,8 @@ function Get-MailboxMoveOnPremisesPermissionReport {
                 ADHashDisplay = $ADHashDisplay
                 ErrorAction   = 'SilentlyContinue'
             }
-            Get-MailboxMoveFolderPermission @FolderPermSplat | Export-Csv (Join-Path $ReportPath 'FolderPermissions.csv') -NoTypeInformation -Encoding UTF8
-            $FolderFile = Join-Path $ReportPath 'FolderPermissions.csv'
+            Get-MailboxMoveFolderPermission @FolderPermSplat | Export-Csv (Join-Path $ReportPath 'ApplyFolderPermissions.csv') -NoTypeInformation -Encoding UTF8
+            $FolderFile = Join-Path $ReportPath 'ApplyFolderPermissions.csv'
         }
         $ExcelSplat = @{
             Path                    = (Join-Path $ReportPath 'Permissions.xlsx')
