@@ -5,6 +5,7 @@ if (-not (Get-Module ActiveDirectory -listavailable)) {
 }
 
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
+Import-Module ActiveDirectory -force
 
 function Get-MailboxMoveOnPremisesPermissionReport {
     [CmdletBinding()]
