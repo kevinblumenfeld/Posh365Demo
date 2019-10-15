@@ -82,11 +82,12 @@ function Get-MailboxMoveOnPremisesPermissionReport {
         }
         if (-not $SkipFolderPerms) {
             $FolderPermSplat = @{
-                MailboxList   = $MailboxList
-                ADUserList    = $ADUserList
-                ADHashType    = $ADHashType
-                ADHashDisplay = $ADHashDisplay
-                ErrorAction   = 'SilentlyContinue'
+                MailboxList     = $MailboxList
+                ADUserList      = $ADUserList
+                ADHashType      = $ADHashType
+                ADHashDisplay   = $ADHashDisplay
+                GroupMemberHash = $GroupMemberHash
+                ErrorAction     = 'SilentlyContinue'
             }
             Get-MailboxMoveFolderPermission @FolderPermSplat | Export-Csv (Join-Path $ReportPath 'FolderPermissions.csv') -NoTypeInformation -Encoding UTF8
             $FolderFile = Join-Path $ReportPath 'FolderPermissions.csv'
@@ -340,8 +341,13 @@ Function Get-MailboxMoveFolderPermission {
 
         [parameter()]
         [hashtable]
-        $ADHashDisplay
+        $ADHashDisplay,
+
+        [parameter()]
+        [hashtable]
+        $GroupMemberHash
     )
+
     end {
         $FolderSelect = @(
             'Object', 'UserPrincipalName', 'PrimarySMTPAddress', 'Folder', 'AccessRights'
