@@ -5,7 +5,6 @@ if (-not (Get-Module ActiveDirectory -listavailable)) {
 }
 
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
-Import-Module ActiveDirectory -force
 
 function Get-MailboxMoveOnPremisesPermissionReport {
     [CmdletBinding()]
@@ -401,10 +400,10 @@ function Get-MailboxFolderPerms {
                 Identity    = $Mailbox.UserPrincipalName
                 ErrorAction = 'SilentlyContinue'
             }
-            $Calendar = (($Mailbox.SamAccountName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Calendar | Select-Object -First 1).Name)
-            $Inbox = (($Mailbox.SamAccountName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Inbox | Select-Object -First 1).Name)
-            $SentItems = (($Mailbox.SamAccountName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope SentItems | Select-Object -First 1).Name)
-            $Contacts = (($Mailbox.SamAccountName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Contacts | Select-Object -First 1).Name)
+            $Calendar = (($Mailbox.UserPrincipalName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Calendar | Select-Object -First 1).Name)
+            $Inbox = (($Mailbox.UserPrincipalName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Inbox | Select-Object -First 1).Name)
+            $SentItems = (($Mailbox.UserPrincipalName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope SentItems | Select-Object -First 1).Name)
+            $Contacts = (($Mailbox.UserPrincipalName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Contacts | Select-Object -First 1).Name)
             $CalAccessList = Get-MailboxFolderPermission $Calendar | Where-Object {
                 $_.User -notmatch 'Default' -and
                 $_.User -notmatch 'Anonymous' -and
@@ -699,12 +698,15 @@ function Get-ADGroupMemberHash {
         Server      = ($dc + ':3268')
         SearchBase  = (Get-ADRootDSE).rootdomainnamingcontext
         SearchScope = 'Subtree'
+        Properties  = 'CanonicalName'
     }
     Get-ADGroup @GroupParams | ForEach-Object {
-        write-host "Caching Members:`t$($_.Name)" -ForegroundColor Green
+        write-host "Caching Group Members: " -ForegroundColor Green -NoNewline
+        write-host "$(($_.CanonicalName).Split('/')[0])" -ForegroundColor White -NoNewline
+        write-host " - $($_.Name) " -ForegroundColor Green
         $GroupMemberHash.Add( ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname, @{
                 SID     = $_.SID
-                MEMBERS = @(Get-ADGroupMember -Identity $_.SID -Recursive) -ne '' | foreach-object { $_.ObjectGuid }
+                MEMBERS = @(Get-ADGroupMember -Identity $_.SID -Server ($_.CanonicalName).Split('/')[0] -Recursive) -ne '' | foreach-object { $_.ObjectGuid }
             } )
     }
     $GroupMemberHash
