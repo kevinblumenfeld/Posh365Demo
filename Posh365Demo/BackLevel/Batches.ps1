@@ -51,7 +51,7 @@ Function Get-MailboxMoveOnPremisesReportHelper {
     )
     end {
         $RecHash = Get-MailboxMoveRecipientHash
-        $MailboxList = Get-Mailbox -ResultSize Unlimited
+        $MailboxList = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
         foreach ($Mailbox in $MailboxList) {
             Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
             $Statistic = $Mailbox | Get-ExchangeMailboxStatistics
