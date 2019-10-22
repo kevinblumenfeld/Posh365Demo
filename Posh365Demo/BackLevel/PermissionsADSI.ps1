@@ -43,7 +43,6 @@ function Get-MailboxMoveOnPremisesPermissionReport {
             SkipSendAs       = $SkipSendAs
             ADHashType       = $ADHashType
             ADHashDisplay    = $ADHashDisplay
-            ErrorAction      = 'SilentlyContinue'
         }
         if ($DelegateSplat.Values -contains $false) {
             try {
@@ -86,7 +85,6 @@ function Get-MailboxMoveOnPremisesPermissionReport {
                 ADHashType      = $ADHashType
                 ADHashDisplay   = $ADHashDisplay
                 GroupMemberHash = $GroupMemberHash
-                ErrorAction     = 'SilentlyContinue'
             }
             Get-MailboxMoveFolderPermission @FolderPermSplat | Export-Csv (Join-Path $ReportPath 'FolderPermissions.csv') -NoTypeInformation -Encoding UTF8
             $FolderFile = Join-Path $ReportPath 'FolderPermissions.csv'
@@ -353,7 +351,7 @@ Function Get-MailboxMoveFolderPermission {
             'Granted', 'GrantedUPN', 'GrantedSMTP', 'TypeDetails', 'DisplayType'
         )
         Write-Verbose "Caching hashtable. DisplayName as Key and Values of UPN, PrimarySMTP, msExchRecipientTypeDetails & msExchRecipientDisplayType"
-        $ADHashDisplayName = $ADUserList | Get-ADHashDisplayName -erroraction silentlycontinue
+        $ADHashDisplayName = $ADUserList | Get-ADHashDisplayName
 
         $FolderPermSplat = @{
             ADHashDisplayName = $ADHashDisplayName
@@ -402,8 +400,7 @@ function Get-MailboxFolderPerms {
         foreach ($Mailbox in $MailboxList) {
             Write-Verbose "Inspecting: `t $($Mailbox.UserPrincipalName)"
             $StatSplat = @{
-                Identity    = $Mailbox.UserPrincipalName
-                ErrorAction = 'SilentlyContinue'
+                Identity = $Mailbox.UserPrincipalName
             }
             $Calendar = (($Mailbox.UserPrincipalName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Calendar | Select-Object -First 1).Name)
             $Inbox = (($Mailbox.UserPrincipalName) + ":\" + (Get-MailboxFolderStatistics @StatSplat -FolderScope Inbox | Select-Object -First 1).Name)
@@ -1070,7 +1067,6 @@ function New-ADSIPrincipalContext {
 
     begin {
         $ScriptName = (Get-Variable -name MyInvocation -Scope 0 -ValueOnly).MyCommand
-        Write-Verbose -Message "[$ScriptName] Add Type System.DirectoryServices.AccountManagement"
         Add-Type -AssemblyName System.DirectoryServices.AccountManagement
     }
     process {
