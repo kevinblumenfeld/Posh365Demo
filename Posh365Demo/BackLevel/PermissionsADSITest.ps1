@@ -351,7 +351,7 @@ Function Get-MailboxMoveFolderPermission {
     end {
         $FolderSelect = @(
             'Object', 'UserPrincipalName', 'PrimarySMTPAddress', 'Folder', 'AccessRights'
-            'Granted', 'GrantedUPN', 'GrantedSMTP', 'TypeDetails', 'DisplayType'
+            'Granted', 'GrantedUPN', 'GrantedSMTP', 'Checking', 'TypeDetails', 'DisplayType'
         )
         Write-Verbose "Caching hashtable. DisplayName as Key and Values of UPN, PrimarySMTP, msExchRecipientTypeDetails & msExchRecipientDisplayType"
         $ADHashDisplayName = $ADUserList | Get-ADHashDisplayName #-erroraction silentlycontinue
@@ -432,6 +432,7 @@ function Get-MailboxFolderPerms {
                                 Granted            = $UserGroupHash[$Member].DisplayName
                                 GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
                                 GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                                Checking           = $CalAccess.User
                                 TypeDetails        = "GroupMember"
                                 DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($CalAccess.User)".msExchRecipientDisplayType)"
                             }
@@ -448,6 +449,7 @@ function Get-MailboxFolderPerms {
                             Granted            = $CalAccess.User
                             GrantedUPN         = $ADHashDisplayName."$($CalAccess.User)".UserPrincipalName
                             GrantedSMTP        = $ADHashDisplayName."$($CalAccess.User)".PrimarySMTPAddress
+                            Checking           = $CalAccess.User
                             TypeDetails        = $ADHashType."$($ADHashDisplayName."$($CalAccess.User)".msExchRecipientTypeDetails)"
                             DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($CalAccess.User)".msExchRecipientDisplayType)"
                         }
@@ -476,6 +478,7 @@ function Get-MailboxFolderPerms {
                                 Granted            = $UserGroupHash[$Member].DisplayName
                                 GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
                                 GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                                Checking           = $InboxAccess.User
                                 TypeDetails        = "GroupMember"
                                 DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($InboxAccess.User)".msExchRecipientDisplayType)"
                             }
@@ -492,6 +495,7 @@ function Get-MailboxFolderPerms {
                             Granted            = $InboxAccess.User
                             GrantedUPN         = $ADHashDisplayName."$($InboxAccess.User)".UserPrincipalName
                             GrantedSMTP        = $ADHashDisplayName."$($InboxAccess.User)".PrimarySMTPAddress
+                            Checking           = $InboxAccess.User
                             TypeDetails        = $ADHashType."$($ADHashDisplayName."$($InboxAccess.User)".msExchRecipientTypeDetails)"
                             DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($InboxAccess.User)".msExchRecipientDisplayType)"
                         }
@@ -520,6 +524,7 @@ function Get-MailboxFolderPerms {
                                 Granted            = $UserGroupHash[$Member].DisplayName
                                 GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
                                 GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                                Checking           = $SentAccess.User
                                 TypeDetails        = "GroupMember"
                                 DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($SentAccess.User)".msExchRecipientDisplayType)"
                             }
@@ -536,6 +541,7 @@ function Get-MailboxFolderPerms {
                             Granted            = $SentAccess.User
                             GrantedUPN         = $ADHashDisplayName."$($SentAccess.User)".UserPrincipalName
                             GrantedSMTP        = $ADHashDisplayName."$($SentAccess.User)".PrimarySMTPAddress
+                            Checking           = $SentAccess.User
                             TypeDetails        = $ADHashType."$($ADHashDisplayName."$($SentAccess.User)".msExchRecipientTypeDetails)"
                             DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($SentAccess.User)".msExchRecipientDisplayType)"
                         }
@@ -564,6 +570,7 @@ function Get-MailboxFolderPerms {
                                 Granted            = $UserGroupHash[$Member].DisplayName
                                 GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
                                 GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                                Checking           = $ContactsAccess.User
                                 TypeDetails        = "GroupMember"
                                 DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($ContactsAccess.User)".msExchRecipientDisplayType)"
                             }
@@ -580,6 +587,7 @@ function Get-MailboxFolderPerms {
                             Granted            = $ContactsAccess.User
                             GrantedUPN         = $ADHashDisplayName."$($ContactsAccess.User)".UserPrincipalName
                             GrantedSMTP        = $ADHashDisplayName."$($ContactsAccess.User)".PrimarySMTPAddress
+                            Checking           = $ContactsAccess.User
                             TypeDetails        = $ADHashType."$($ADHashDisplayName."$($ContactsAccess.User)".msExchRecipientTypeDetails)"
                             DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($ContactsAccess.User)".msExchRecipientDisplayType)"
                         }
