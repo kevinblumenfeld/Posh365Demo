@@ -60,7 +60,23 @@ function Get-MailboxMoveOnPremisesPermissionReport {
         $DomainNameHash = Get-DomainNameHash
         Write-Verbose "Importing Active Directory Users and Groups that have at least one proxy address"
 
-        $ADUserList = Get-ADUsersAndGroups -DomainNameHash $DomainNameHash
+        $context = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest')
+        $dc = ([System.DirectoryServices.ActiveDirectory.GlobalCatalog]::FindOne($context, [System.DirectoryServices.ActiveDirectory.LocatorOptions]'ForceRediscovery, WriteableRequired')).name
+        $Selectproperties = @(
+            'DisplayName', 'UserPrincipalName', 'distinguishedname', 'SamAccountName', 'ProxyAddresses'
+            'canonicalname', 'mail', 'Objectguid', 'msExchRecipientTypeDetails'
+            'msExchRecipientDisplayType', 'objectClass', 'Sid'
+        )
+        $GroupParams = @{
+            LDAPFilter    = "(!(SamAccountName=Domain Computers))"
+            Server        = ($dc + ':3268')
+            SearchBase    = (Get-ADRootDSE).rootdomainnamingcontext
+            SearchScope   = 'Subtree'
+            Properties    = $Selectproperties
+            ResultSetSize = $null
+        }
+        $ADGroups = Get-ADGroup @GroupParams
+        $ADUserList = Get-ADUsersAndGroups -DomainNameHash $DomainNameHash -ADGroups $ADGroups
         $UserGroupHash = @{ }
         $ADUserList | ForEach-Object { $usergrouphash.Add($_.ObjectGuid, @{
                     'PrimarySmtpAddress' = $_.PrimarySmtpAddress
@@ -68,7 +84,7 @@ function Get-MailboxMoveOnPremisesPermissionReport {
                     'UserPrincipalName'  = $_.UserPrincipalName
                 }) }
 
-        $GroupMemberHash = Get-ADGroupMemberHash -DomainNameHash $DomainNameHash -UserGroupHash $UserGroupHash
+        $GroupMemberHash = Get-ADGroupMemberHash -DomainNameHash $DomainNameHash -UserGroupHash $UserGroupHash -ADGroups $ADGroups
 
         Write-Verbose "Retrieving all Exchange Mailboxes"
         $MailboxList = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
@@ -198,7 +214,7 @@ function Get-DomainNameHash {
     end {
         $DomainNameHash = @{ }
 
-        $DomainList = ([System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().domains) | Select -ExpandProperty Name
+        $DomainList = ([System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest().domains) | Select-Object -ExpandProperty Name
         foreach ($Domain in $DomainList) {
             $DomainNameHash[$Domain] = (ConvertTo-NetBios -domain $Domain)
         }
@@ -209,7 +225,10 @@ function Get-DomainNameHash {
 function Get-ADUsersAndGroups {
     param (
         [Parameter()]
-        [hashtable] $DomainNameHash
+        [hashtable] $DomainNameHash,
+
+        [Parameter()]
+        $ADGroups
     )
     try {
         import-module activedirectory -ErrorAction Stop -Verbose:$false
@@ -229,14 +248,27 @@ function Get-ADUsersAndGroups {
         'canonicalname', 'mail', 'Objectguid', 'msExchRecipientTypeDetails'
         'msExchRecipientDisplayType', 'objectClass'
     )
+
     $CalculatedProps = @(
-        @{n = "logon"; e = { ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname } },
-        @{n = "PrimarySMTPAddress" ; e = { ( $_.proxyAddresses | Where-Object { $_ -cmatch "SMTP:*" }).Substring(5) } }
+        @{
+            Name       = "logon"
+            Expression = { ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname }
+        }
+        @{
+            Name       = "PrimarySMTPAddress"
+            Expression = { ( $_.proxyAddresses | Where-Object { $_ -cmatch "SMTP:*" }).Substring(5) }
+        }
     )
-    Get-ADUser -filter * -server ($dc + ":3268") -SearchBase (Get-ADRootDSE).rootdomainnamingcontext -SearchScope Subtree -Properties $SelectProperties |
-    Select-Object ($Selectproperties + $CalculatedProps)
-    Get-ADGroup -filter * -server ($dc + ":3268") -SearchBase (Get-ADRootDSE).rootdomainnamingcontext -SearchScope Subtree -Properties $SelectProperties |
-    Select-Object ($Selectproperties + $CalculatedProps)
+    $ADUserSplat = @{
+        filter        = '*'
+        server        = ($dc + ":3268")
+        SearchBase    = (Get-ADRootDSE).rootdomainnamingcontext
+        SearchScope   = 'Subtree'
+        Properties    = $SelectProperties
+        ResultSetSize = $null
+    }
+    Get-ADUser @ADUserSplat | Select-Object ($Selectproperties + $CalculatedProps)
+    $ADGroups | Select-Object ($Selectproperties + $CalculatedProps)
 }
 
 function Get-MailboxMoveMailboxPermission {
@@ -368,7 +400,6 @@ Function Get-MailboxMoveFolderPermission {
         $MailboxList | Get-MailboxFolderPerms @FolderPermSplat | Select-Object $FolderSelect
     }
 }
-
 
 function Get-MailboxFolderPerms {
     [CmdletBinding()]
@@ -674,7 +705,7 @@ function Get-ADHashDN {
         $ADHashDN
     }
 }
-#
+
 function Get-ADHash {
     param (
         [parameter(ValueFromPipeline = $true)]
@@ -706,26 +737,20 @@ function Get-ADGroupMemberHash {
         [hashtable] $DomainNameHash,
 
         [Parameter()]
-        [hashtable] $UserGroupHash
+        [hashtable] $UserGroupHash,
+
+        [Parameter()]
+        $ADGroups
     )
-    $context = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest')
-    $dc = ([System.DirectoryServices.ActiveDirectory.GlobalCatalog]::FindOne($context, [System.DirectoryServices.ActiveDirectory.LocatorOptions]'ForceRediscovery, WriteableRequired')).name
     $GroupMemberHash = @{ }
-    $GroupParams = @{
-        LDAPFilter    = "(!(SamAccountName=Domain Computers))"
-        Server        = ($dc + ':3268')
-        SearchBase    = (Get-ADRootDSE).rootdomainnamingcontext
-        SearchScope   = 'Subtree'
-        Properties    = 'CanonicalName'
-        ResultSetSize = $null
-    }
-    Get-ADGroup @GroupParams | ForEach-Object {
+
+    $ADGroups | ForEach-Object {
         write-host "Caching Group Members: " -ForegroundColor Green -NoNewline
         write-host "$(($_.CanonicalName).Split('/')[0])" -ForegroundColor White -NoNewline
         write-host " - $($_.Name) " -ForegroundColor Green
         $GroupMemberHash.Add( ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname, @{
                 SID     = $_.SID
-                MEMBERS = @(Get-ADSIGroupMember -Identity $_.SID -Recurse -Domain ($_.CanonicalName).Split('/')[0]) -ne '' | foreach-object { $_.Guid }
+                MEMBERS = @(Get-ADSIGroupMember -Identity $_.SID -Recurse -DomainName ($_.CanonicalName).Split('/')[0]) -ne '' | foreach-object { $_.Guid }
             })
     }
     $GroupMemberHash
@@ -1048,7 +1073,6 @@ function Connect-Exchange {
     Write-Host "Connected to Exchange Server: $Server" -ForegroundColor Green
 }
 
-
 $InstallSplat = @{
     Name        = 'ImportExcel'
     Scope       = 'CurrentUser'
@@ -1125,132 +1149,41 @@ function New-ADSIPrincipalContext {
 }
 function Get-ADSIGroupMember {
     <#
-.SYNOPSIS
+    .SYNOPSIS
     Function to retrieve the members from a specific group in Active Directory
-
-.DESCRIPTION
-    Function to retrieve the members from a specific group in Active Directory
-
-.PARAMETER Identity
-    Specifies the Identity of the Group
-
-    You can provide one of the following properties
-    DistinguishedName
-    Guid
-    Name
-    SamAccountName
-    Sid
-    UserPrincipalName
-
-    Those properties come from the following enumeration:
-    System.DirectoryServices.AccountManagement.IdentityType
-
-.PARAMETER Credential
-    Specifies alternative credential
-
-.PARAMETER Recurse
-    Retrieves all the recursive members (Members of group(s)'s members)
-
-.PARAMETER DomainName
-    Specifies the alternative Domain where the user should be created
-    By default it will use the current domain.
-
-.PARAMETER GroupsOnly
-    Specifies that you only want to retrieve the members of type Group only.
-
-.EXAMPLE
-    Get-ADSIGroupMember -Identity 'Finance'
-
-    Retrieve the direct members of the group 'Finance'
-
-.EXAMPLE
-    Get-ADSIGroupMember -Identity 'Finance' -Recursive
-
-    Retrieve the direct and nested members of the group 'Finance'
-
-.EXAMPLE
-    Get-ADSIGroupMember -Identity 'Finance' -GroupsOnly
-
-    Retrieve the direct groups members of the group 'Finance'
-
-.EXAMPLE
-    Get-ADSIGroupMember -Identity 'Finance' -Credential (Get-Credential)
-
-    Retrieve the direct members of the group 'Finance' using alternative Credential
-
-.EXAMPLE
-    Get-ADSIGroupMember -Identity 'Finance' -Credential (Get-Credential) -DomainName FX.LAB
-
-    Retrieve the direct members of the group 'Finance' using alternative Credential in the domain FX.LAB
-
-.EXAMPLE
-    $Comp = Get-ADSIGroupMember -Identity 'SERVER01'
-    $Comp.GetUnderlyingObject()| Select-Object -Property *
-
-    Help you find all the extra properties
-
-.LINK
-    https://msdn.microsoft.com/en-us/library/system.directoryservices.accountmanagement.groupprincipal%28v=vs.110%29.aspx?f=255&MSPPError=-2147217396
-
-.NOTES
+    .NOTES
     https://github.com/lazywinadmin/ADSIPS
-#>
-    [CmdletBinding(DefaultParameterSetName = 'All')]
-    param ([Parameter(Mandatory = $true)]
-        [System.String]$Identity,
+    #>
+    [CmdletBinding()]
+    param ([
+        Parameter(Mandatory = $true)]
+        [System.String]
+        $Identity,
 
-        [Alias("RunAs")]
-        [System.Management.Automation.PSCredential]
-        [System.Management.Automation.Credential()]
-        $Credential = [System.Management.Automation.PSCredential]::Empty,
+        [Parameter()]
+        [System.String]
+        $DomainName,
 
-        [System.String]$DomainName,
-
-        [Parameter(ParameterSetName = 'All')]
-        [Switch]$Recurse,
-
-        [Parameter(ParameterSetName = 'Groups')]
-        [Switch]$GroupsOnly
+        [Parameter()]
+        [Switch]
+        $Recurse
     )
     begin {
         Add-Type -AssemblyName System.DirectoryServices.AccountManagement
 
-        # Create Context splatting
         $ContextSplatting = @{ ContextType = "Domain" }
 
-        if ($PSBoundParameters['Credential']) {
-            $ContextSplatting.Credential = $Credential
-        }
         if ($PSBoundParameters['DomainName']) {
             $ContextSplatting.DomainName = $DomainName
         }
 
         $Context = New-ADSIPrincipalContext @ContextSplatting
     }
-    process {
-        try {
-
-            if ($PSBoundParameters['GroupsOnly']) {
-                Write-Verbose -Message "GROUP: $($Identity.toUpper()) - Retrieving Groups only"
-                $Account = ([System.DirectoryServices.AccountManagement.GroupPrincipal]::FindByIdentity($Context, $Identity))
-                $Account.GetGroups()
-            }
-            else {
-                Write-Verbose -Message "GROUP: $($Identity.toUpper()) - Retrieving All members"
-                if ($PSBoundParameters['Recursive']) {
-                    Write-Verbose -Message "GROUP: $($Identity.toUpper()) - Recursive parameter Specified"
-                }
-                # Returns a collection of the principal objects that is contained in the group.
-                # When the $recurse flag is set to true, this method searches the current group recursively and returns all nested group members.
-                ([System.DirectoryServices.AccountManagement.GroupPrincipal]::FindByIdentity($Context, $Identity)).GetMembers($Recurse)
-            }
-        }
-        catch {
-            $pscmdlet.ThrowTerminatingError($_)
-        }
+    end {
+        Write-Verbose -Message "GROUP: $($Identity.toUpper()) - Retrieving All members"
+        ([System.DirectoryServices.AccountManagement.GroupPrincipal]::FindByIdentity($Context, $Identity)).GetMembers($Recurse)
     }
 }
-
 
 function Get-Answer {
     $Answer = Read-Host "Connect to Exchange Server? (Y/N)"
@@ -1265,8 +1198,6 @@ function Get-Answer {
 }
 Get-Answer
 Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose
-
-
 
 
 
