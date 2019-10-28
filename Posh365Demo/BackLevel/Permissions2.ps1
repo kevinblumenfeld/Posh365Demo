@@ -734,10 +734,12 @@ function Get-ADHash {
 function Get-ADGroupMemberHash {
     param (
         [Parameter()]
-        [hashtable] $DomainNameHash,
+        [hashtable]
+        $DomainNameHash,
 
         [Parameter()]
-        [hashtable] $UserGroupHash,
+        [hashtable]
+        $UserGroupHash,
 
         [Parameter()]
         $ADGroups
