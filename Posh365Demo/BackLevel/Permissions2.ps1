@@ -1087,7 +1087,7 @@ try {
     Install-Module @InstallSplat
 }
 catch {
-    $_.Exception.Message
+    Write-Host "$($_.Exception.Message)"
 }
 function New-ADSIPrincipalContext {
     [CmdletBinding(SupportsShouldProcess = $true)]
