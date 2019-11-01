@@ -746,16 +746,23 @@ function Get-ADGroupMemberHash {
     )
     $GroupMemberHash = @{ }
 
-    $ADGroups | ForEach-Object {
-        write-host "Caching Group Members: " -ForegroundColor Green -NoNewline
-        write-host "$(($_.CanonicalName).Split('/')[0])" -ForegroundColor White -NoNewline
-        write-host " - $($_.Name) " -ForegroundColor Green
-        $GroupMemberHash.Add( ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname, @{
-                SID     = $_.SID
-                MEMBERS = @(Get-ADSIGroupMember -Identity $_.SID -Recurse -DomainName ($_.CanonicalName).Split('/')[0]) -ne '' | foreach-object { $_.Guid }
-            })
+    if (Test-Path -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) GroupMemberHash.xml)) {
+        Import-Clixml -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) GroupMemberHash.xml)
+
     }
-    $GroupMemberHash
+    else {
+        $ADGroups | ForEach-Object {
+            write-host "Caching Group Members: " -ForegroundColor Green -NoNewline
+            write-host "$(($_.CanonicalName).Split('/')[0])" -ForegroundColor White -NoNewline
+            write-host " - $($_.Name) " -ForegroundColor Green
+            $GroupMemberHash.Add( ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname, @{
+                    SID     = $_.SID
+                    MEMBERS = @(Get-ADSIGroupMember -Identity $_.SID -Recurse -DomainName ($_.CanonicalName).Split('/')[0]) -ne '' | foreach-object { $_.Guid }
+                })
+        }
+        $GroupMemberHash | Export-Clixml -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) GroupMemberHash.xml)
+        $GroupMemberHash
+    }
 }
 
 function ConvertTo-NetBios {
@@ -1199,6 +1206,17 @@ function Get-Answer {
 
 }
 Get-Answer
+
+# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendAs -SkipSendOnBehalf -SkipFullAccess -SkipFolderPerms
+
+# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendAs -SkipSendOnBehalf -SkipFolderPerms
+
+# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendAs -SkipFullAccess -SkipFolderPerms
+
+# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendAs -SkipSendOnBehalf -SkipFullAccess
+
+# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendOnBehalf -SkipFullAccess -SkipFolderPerms
+
 Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose
 
 
