@@ -1,10 +1,4 @@
-
-if (-not (Get-Module ActiveDirectory -listavailable)) {
-    Write-Host "Please run from a computer with AD module" -ForegroundColor Red
-    break
-}
-
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
+# Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
 
 function Get-MailboxMoveOnPremisesPermissionReport {
     [CmdletBinding()]
@@ -92,7 +86,7 @@ function Get-MailboxMoveOnPremisesPermissionReport {
                     'DisplayName'        = $_.DisplayName
                     'UserPrincipalName'  = $_.UserPrincipalName
                 }) }
-
+        Write-Verbose "Collecting Hashtable of Group Membership"
         $GroupMemberHash = Get-ADGroupMemberHash -DomainNameHash $DomainNameHash -UserGroupHash $UserGroupHash -ADGroups $ADGroups
 
         Write-Verbose "Retrieving all Exchange Mailboxes"
@@ -463,7 +457,7 @@ function Get-MailboxFolderPerms {
     }
     process {
         foreach ($Mailbox in $MailboxList) {
-            Write-Verbose "Inspecting: `t $($Mailbox.UserPrincipalName)"
+            # Write-Verbose "Inspecting: `t $($Mailbox.UserPrincipalName)"
             $StatSplat = @{
                 Identity = $Mailbox.UserPrincipalName
                 # ErrorAction = 'SilentlyContinue'
@@ -484,7 +478,7 @@ function Get-MailboxFolderPerms {
                     $DisplayType = $ADHashDisplayName[$CalAccess.User].msExchRecipientDisplayType
                     if ($GroupMemberHash[$Logon].Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
                         foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
-                            Write-Verbose "`tcalendar group member`t$Member"
+                            # Write-Verbose "`tcalendar group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
                                 UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -501,7 +495,7 @@ function Get-MailboxFolderPerms {
                         }
                     }
                     elseif ( $ADHashDisplayName[$CalAccess.User].objectClass -notmatch 'group') {
-                        Write-Host "calendar user`t$($CalAccess.User)" -ForegroundColor Green
+                        # Write-Host "calendar user`t$($CalAccess.User)" -ForegroundColor Green
                         New-Object -TypeName psobject -property @{
                             Object             = $Mailbox.DisplayName
                             UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -530,7 +524,7 @@ function Get-MailboxFolderPerms {
                     $DisplayType = $ADHashDisplayName[$InboxAccess.User].msExchRecipientDisplayType
                     if ($GroupMemberHash[$Logon].Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
                         foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
-                            Write-Verbose "`tinbox group member`t$Member"
+                            # Write-Verbose "`tinbox group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
                                 UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -547,7 +541,7 @@ function Get-MailboxFolderPerms {
                         }
                     }
                     elseif ( $ADHashDisplayName[$InboxAccess.User].objectClass -notmatch 'group') {
-                        Write-Host "inbox user`t$($InboxAccess.User)" -ForegroundColor Green
+                        # Write-Host "inbox user`t$($InboxAccess.User)" -ForegroundColor Green
                         New-Object -TypeName psobject -property @{
                             Object             = $Mailbox.DisplayName
                             UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -576,7 +570,7 @@ function Get-MailboxFolderPerms {
                     $DisplayType = $ADHashDisplayName[$SentAccess.User].msExchRecipientDisplayType
                     if ($GroupMemberHash[$Logon].Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
                         foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
-                            Write-Verbose "`tsentitems group member`t$Member"
+                            # Write-Verbose "`tsentitems group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
                                 UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -593,7 +587,7 @@ function Get-MailboxFolderPerms {
                         }
                     }
                     elseif ( $ADHashDisplayName[$SentAccess.User].objectClass -notmatch 'group') {
-                        Write-Host "sentitems user`t$($SentAccess.User)" -ForegroundColor Green
+                        # Write-Host "sentitems user`t$($SentAccess.User)" -ForegroundColor Green
                         New-Object -TypeName psobject -property @{
                             Object             = $Mailbox.DisplayName
                             UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -622,7 +616,7 @@ function Get-MailboxFolderPerms {
                     $DisplayType = $ADHashDisplayName[$ContactsAccess.User].msExchRecipientDisplayType
                     if ($GroupMemberHash[$Logon].Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
                         foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
-                            Write-Verbose "`tcontacts group member`t$Member"
+                            # Write-Verbose "`tcontacts group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
                                 UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -639,7 +633,7 @@ function Get-MailboxFolderPerms {
                         }
                     }
                     elseif ( $ADHashDisplayName[$ContactsAccess.User].objectClass -notmatch 'group') {
-                        Write-Host "contacts user`t$($ContactsAccess.User)" -ForegroundColor Green
+                        # Write-Host "contacts user`t$($ContactsAccess.User)" -ForegroundColor Green
                         New-Object -TypeName psobject -property @{
                             Object             = $Mailbox.DisplayName
                             UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -851,7 +845,7 @@ function Get-SendAsPerms {
     }
     process {
         foreach ($ADUser in $DistinguishedName) {
-            Write-Verbose "Inspecting:`t $ADUser"
+            # Write-Verbose "Inspecting:`t $ADUser"
             Get-ADPermission $ADUser | Where-Object {
                 $_.ExtendedRights -like "*Send-As*" -and
                 ($_.IsInherited -eq $false) -and
@@ -863,7 +857,7 @@ function Get-SendAsPerms {
                 if ($GroupMemberHash."$($HasPerm)".Members -and
                     $ADHashDisplay."$($ADHash["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
                     foreach ($Member in @($GroupMemberHash.$("$HasPerm").Members)) {
-                        Write-Verbose "`tsendas group member`t$Member"
+                        # Write-Verbose "`tsendas group member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $ADHashDN["$ADUser"].DisplayName
                             UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
@@ -879,7 +873,7 @@ function Get-SendAsPerms {
                     }
                 }
                 elseif ( $ADHash."$($HasPerm)".objectClass -notmatch 'group') {
-                    Write-Host "sendas user`t$HasPerm" -ForegroundColor Green
+                    # Write-Host "sendas user`t$HasPerm" -ForegroundColor Green
                     New-Object -TypeName psobject -property @{
                         Object             = $ADHashDN["$ADUser"].DisplayName
                         UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
@@ -936,13 +930,13 @@ function Get-SendOnBehalfPerms {
     }
     process {
         foreach ($Mailbox in $MailboxList) {
-            Write-Verbose "Inspecting: `t $Mailbox"
+            # Write-Verbose "Inspecting: `t $Mailbox"
             foreach ($HasPerm in @($Mailbox.GrantSendOnBehalfTo)) {
                 $Logon = $ADHashCN.$HasPerm.logon
                 if ($GroupMemberHash.$Logon.Members -and
                     $ADHashDisplay."$($ADHashCN["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
                     foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
-                        Write-Verbose "`tsendonbehalf group member`t$Member"
+                        # Write-Verbose "`tsendonbehalf group member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $Mailbox.DisplayName
                             UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -958,7 +952,7 @@ function Get-SendOnBehalfPerms {
                     }
                 }
                 elseif ( $ADHash["$HasPerm"].objectClass -notmatch 'group') {
-                    Write-Host "sendonbehalf user`t$HasPerm" -ForegroundColor Green
+                    # Write-Host "sendonbehalf user`t$HasPerm" -ForegroundColor Green
                     New-Object -TypeName psobject -property @{
                         Object             = $Mailbox.DisplayName
                         UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -1016,7 +1010,7 @@ function Get-FullAccessPerms {
     }
     process {
         foreach ($ADUser in $ADUserList) {
-            Write-Verbose "Inspecting:`t $ADUser"
+            # Write-Verbose "Inspecting:`t $ADUser"
             @(Get-MailboxPermission $ADUser) -ne '' |
             Where-Object {
                 $_.AccessRights -like "*FullAccess*" -and
@@ -1028,7 +1022,7 @@ function Get-FullAccessPerms {
                 if ($GroupMemberHash[$HasPerm].Members -and
                     $ADHashDisplay."$($ADHash["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
                     foreach ($Member in @($GroupMemberHash[$HasPerm].Members)) {
-                        Write-Verbose "`tfullaccess group member`t$Member"
+                        # Write-Verbose "`tfullaccess group member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $ADHashDN["$ADUser"].DisplayName
                             UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
@@ -1044,7 +1038,7 @@ function Get-FullAccessPerms {
                     }
                 }
                 elseif ( $ADHash["$HasPerm"].objectClass -notmatch 'group') {
-                    Write-Host "fullaccess user`t$HasPerm" -ForegroundColor Green
+                    # Write-Host "fullaccess user`t$HasPerm" -ForegroundColor Green
                     New-Object -TypeName psobject -property @{
                         Object             = $ADHashDN["$ADUser"].DisplayName
                         UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
