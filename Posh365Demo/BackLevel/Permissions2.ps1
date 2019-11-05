@@ -1325,13 +1325,17 @@ $MailboxCount = $AllMailboxes.count
 #
 #
 #
+#
 
 $ParameterSplat = Get-DecisionCount -Count $MailboxCount -AllMailboxes $AllMailboxes
 
 Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
 
-# To Re-Run reconnect to Exchange each time to prevent time-outs
-# Copy and Paste the below line in to the console:
+#
+# To rerun reconnect to Exchange each time to prevent time-outs - you will be automatically prompted
+#
+# Simply, copy and paste the below line into the console:
+#
 # Get-Answer ; $ParameterSplat = Get-DecisionCount -Count $MailboxCount -AllMailboxes $AllMailboxes ; Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
 #
 #######################################################
