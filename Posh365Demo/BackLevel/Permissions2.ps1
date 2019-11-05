@@ -27,10 +27,19 @@ function Get-MailboxMoveOnPremisesPermissionReport {
 
         [Parameter()]
         [switch]
-        $SkipFolderPerms
+        $SkipFolderPerms,
+
+        [Parameter()]
+        $AllMailboxes,
+
+        [Parameter()]
+        $Start,
+
+        [Parameter()]
+        $End
     )
     end {
-        New-Item -ItemType Directory -Path $ReportPath -ErrorAction SilentlyContinue
+        $null = New-Item -ItemType Directory -Path $ReportPath -ErrorAction SilentlyContinue
 
         Write-Verbose "Caching hashtable. msExchRecipientTypeDetails numerical value as Key and Value of human readable"
         $ADHashType = Get-ADHashType
@@ -87,14 +96,26 @@ function Get-MailboxMoveOnPremisesPermissionReport {
         $GroupMemberHash = Get-ADGroupMemberHash -DomainNameHash $DomainNameHash -UserGroupHash $UserGroupHash -ADGroups $ADGroups
 
         Write-Verbose "Retrieving all Exchange Mailboxes"
-        $MailboxList = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
+        if ($End) {
+            $MailboxList = $AllMailboxes[($Start..$End)]
+        }
+        else {
+            $MailboxList = $AllMailboxes
+        }
         if ($DelegateSplat.Values -contains $false) {
             $DelegateSplat.Add('MailboxList', $MailboxList)
             $DelegateSplat.Add('ADUserList', $ADUserList)
             $DelegateSplat.Add('UserGroupHash', $UserGroupHash)
             $DelegateSplat.Add('GroupMemberHash', $GroupMemberHash)
-            Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv (Join-Path $ReportPath 'MailboxPermissions.csv') -NoTypeInformation -Encoding UTF8
-            $MailboxFile = Join-Path $ReportPath 'MailboxPermissions.csv'
+            if ($End) {
+                Get-MailboxMoveMailboxPermission @DelegateSplat |
+                Export-Csv ((Join-Path -Path '{0}' -ChildPath '{1}-{2}MailboxPermissions.csv') -f $ReportPath, $Start, $End) -NoTypeInformation -Encoding UTF8
+            }
+            else {
+                $Desktop = [Environment]::GetFolderPath("Desktop")
+                $MailboxFile = Join-Path -Path $Desktop -ChildPath 'MailboxPermissions.csv'
+                Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv $MailboxFile -NoTypeInformation -Encoding UTF8
+            }
         }
         if (-not $SkipFolderPerms) {
             $FolderPermSplat = @{
@@ -105,19 +126,29 @@ function Get-MailboxMoveOnPremisesPermissionReport {
                 GroupMemberHash = $GroupMemberHash
                 #ErrorAction     = 'SilentlyContinue'
             }
-            Get-MailboxMoveFolderPermission @FolderPermSplat | Export-Csv (Join-Path $ReportPath 'FolderPermissions.csv') -NoTypeInformation -Encoding UTF8
-            $FolderFile = Join-Path $ReportPath 'FolderPermissions.csv'
+            if ($End) {
+                Get-MailboxMoveFolderPermission @FolderPermSplat |
+                Export-Csv ((Join-Path -Path '{0}' -ChildPath '{1}-{2}FolderPermissions.csv') -f $ReportPath, $Start, $End) -NoTypeInformation -Encoding UTF8
+            }
+            else {
+                $Desktop = [Environment]::GetFolderPath("Desktop")
+                $FolderFile = Join-Path -Path $Desktop  -ChildPath 'FolderPermissions.csv'
+                Get-MailboxMoveFolderPermission @FolderPermSplat | Export-Csv $FolderFile -NoTypeInformation -Encoding UTF8
+            }
+
         }
-        $ExcelSplat = @{
-            Path                    = (Join-Path $ReportPath 'Permissions.xlsx')
-            TableStyle              = 'Medium2'
-            FreezeTopRowFirstColumn = $true
-            AutoSize                = $true
-            BoldTopRow              = $true
-            ClearSheet              = $true
-            ErrorAction             = 'SilentlyContinue'
+        if ($Desktop) {
+            $ExcelSplat = @{
+                Path                    = (Join-Path $Desktop 'Permissions.xlsx')
+                TableStyle              = 'Medium2'
+                FreezeTopRowFirstColumn = $true
+                AutoSize                = $true
+                BoldTopRow              = $true
+                ClearSheet              = $true
+                ErrorAction             = 'SilentlyContinue'
+            }
+            $MailboxFile, $FolderFile | Where-Object { $_ } | ForEach-Object { Import-Csv $_ | Export-Excel @ExcelSplat -WorksheetName ($_ -replace '.+\\|permissions\.csv') }
         }
-        $MailboxFile, $FolderFile | Where-Object { $_ } | ForEach-Object { Import-Csv $_ | Export-Excel @ExcelSplat -WorksheetName ($_ -replace '.+\\|permissions\.csv') }
     }
 }
 
@@ -451,8 +482,8 @@ function Get-MailboxFolderPerms {
                 Foreach ($CalAccess in $CalAccessList) {
                     $Logon = $ADHashDisplayName[$CalAccess.User].logon
                     $DisplayType = $ADHashDisplayName[$CalAccess.User].msExchRecipientDisplayType
-                    if ($GroupMemberHash[$Logon].Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
-                        foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
+                    if ($GroupMemberHash[$Logon] -and $ADHashDisplay["$DisplayType"] -match 'group') {
+                        foreach ($Member in @($GroupMemberHash.$Logon)) {
                             Write-Verbose "`tcalendar group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
@@ -497,8 +528,8 @@ function Get-MailboxFolderPerms {
                 Foreach ($InboxAccess in $InboxAccessList) {
                     $Logon = $ADHashDisplayName[$InboxAccess.User].logon
                     $DisplayType = $ADHashDisplayName[$InboxAccess.User].msExchRecipientDisplayType
-                    if ($GroupMemberHash[$Logon].Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
-                        foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
+                    if ($GroupMemberHash[$Logon] -and $ADHashDisplay["$DisplayType"] -match 'group') {
+                        foreach ($Member in @($GroupMemberHash.$Logon)) {
                             Write-Verbose "`tinbox group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
@@ -543,8 +574,8 @@ function Get-MailboxFolderPerms {
                 Foreach ($SentAccess in $SentAccessList) {
                     $Logon = $ADHashDisplayName[$SentAccess.User].logon
                     $DisplayType = $ADHashDisplayName[$SentAccess.User].msExchRecipientDisplayType
-                    if ($GroupMemberHash[$Logon].Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
-                        foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
+                    if ($GroupMemberHash[$Logon] -and $ADHashDisplay["$DisplayType"] -match 'group') {
+                        foreach ($Member in @($GroupMemberHash.$Logon)) {
                             Write-Verbose "`tsentitems group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
@@ -589,8 +620,8 @@ function Get-MailboxFolderPerms {
                 Foreach ($ContactsAccess in $ContactsAccessList) {
                     $Logon = $ADHashDisplayName[$ContactsAccess.User].logon
                     $DisplayType = $ADHashDisplayName[$ContactsAccess.User].msExchRecipientDisplayType
-                    if ($GroupMemberHash[$Logon].Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
-                        foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
+                    if ($GroupMemberHash[$Logon] -and $ADHashDisplay["$DisplayType"] -match 'group') {
+                        foreach ($Member in @($GroupMemberHash.$Logon)) {
                             Write-Verbose "`tcontacts group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
@@ -686,13 +717,13 @@ function Get-ADHashCN {
 function Get-ADHashDN {
     param (
         [parameter(ValueFromPipeline = $true)]
-        $MailboxList
+        $AllMailboxes
     )
     begin {
         $ADHashDN = @{ }
     }
     process {
-        foreach ($Mailbox in $MailboxList) {
+        foreach ($Mailbox in $AllMailboxes) {
             $ADHashDN["$($Mailbox.DistinguishedName)"] = @{
                 DisplayName        = $Mailbox.DisplayName
                 UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -744,21 +775,18 @@ function Get-ADGroupMemberHash {
         [Parameter()]
         $ADGroups
     )
-    $GroupMemberHash = @{ }
-
     if (Test-Path -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) GroupMemberHash.xml)) {
         Import-Clixml -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) GroupMemberHash.xml)
 
     }
     else {
+        $GroupMemberHash = @{ }
         $ADGroups | ForEach-Object {
             write-host "Caching Group Members: " -ForegroundColor Green -NoNewline
             write-host "$(($_.CanonicalName).Split('/')[0])" -ForegroundColor White -NoNewline
             write-host " - $($_.Name) " -ForegroundColor Green
-            $GroupMemberHash.Add( ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname, @{
-                    SID     = $_.SID
-                    MEMBERS = @(Get-ADSIGroupMember -Identity $_.SID -Recurse -DomainName ($_.CanonicalName).Split('/')[0]) -ne '' | foreach-object { $_.Guid }
-                })
+            $GroupMemberHash.Add( ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname,
+                (@(Get-ADSIGroupMember -Identity $_.SID -Recurse -DomainName ($_.CanonicalName).Split('/')[0]) -ne '' | foreach-object { $_.Guid }))
         }
         $GroupMemberHash | Export-Clixml -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) GroupMemberHash.xml)
         $GroupMemberHash
@@ -832,9 +860,9 @@ function Get-SendAsPerms {
                 !$_.Deny
             } | ForEach-Object {
                 $HasPerm = $_.User
-                if ($GroupMemberHash."$($HasPerm)".Members -and
+                if ($GroupMemberHash."$($HasPerm)" -and
                     $ADHashDisplay."$($ADHash["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
-                    foreach ($Member in @($GroupMemberHash.$("$HasPerm").Members)) {
+                    foreach ($Member in @($GroupMemberHash.$("$HasPerm"))) {
                         Write-Verbose "`tsendas group member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $ADHashDN["$ADUser"].DisplayName
@@ -911,9 +939,9 @@ function Get-SendOnBehalfPerms {
             Write-Verbose "Inspecting: `t $Mailbox"
             foreach ($HasPerm in @($Mailbox.GrantSendOnBehalfTo)) {
                 $Logon = $ADHashCN.$HasPerm.logon
-                if ($GroupMemberHash.$Logon.Members -and
+                if ($GroupMemberHash.$Logon -and
                     $ADHashDisplay."$($ADHashCN["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
-                    foreach ($Member in @($GroupMemberHash.$Logon.Members)) {
+                    foreach ($Member in @($GroupMemberHash.$Logon)) {
                         Write-Verbose "`tsendonbehalf group member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $Mailbox.DisplayName
@@ -989,7 +1017,7 @@ function Get-FullAccessPerms {
     process {
         foreach ($ADUser in $ADUserList) {
             Write-Verbose "Inspecting:`t $ADUser"
-            Get-MailboxPermission $ADUser |
+            @(Get-MailboxPermission $ADUser) -ne '' |
             Where-Object {
                 $_.AccessRights -like "*FullAccess*" -and
                 !$_.IsInherited -and !$_.user.tostring().startswith('S-1-5-21-') -and
@@ -997,9 +1025,9 @@ function Get-FullAccessPerms {
                 !$_.Deny
             } | ForEach-Object {
                 $HasPerm = $_.User
-                if ($GroupMemberHash[$HasPerm].Members -and
+                if ($GroupMemberHash[$HasPerm] -and
                     $ADHashDisplay."$($ADHash["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
-                    foreach ($Member in @($GroupMemberHash[$HasPerm].Members)) {
+                    foreach ($Member in @($GroupMemberHash[$HasPerm])) {
                         Write-Verbose "`tfullaccess group member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $ADHashDN["$ADUser"].DisplayName
@@ -1091,7 +1119,9 @@ $InstallSplat = @{
 }
 
 try {
-    Install-Module @InstallSplat
+    if (-not (Get-Module ImportExcel -ListAvailable)) {
+        Install-Module @InstallSplat
+    }
 }
 catch {
     Write-Host "$($_.Exception.Message)"
@@ -1201,26 +1231,108 @@ function Get-Answer {
     }
     if ($Answer -eq "Y") {
         $ServerName = Read-Host "Type then name of the Exchange Server and hit enter"
+        Get-PSSession | Remove-PSSession
         Connect-Exchange -Server $ServerName
     }
 
 }
 Get-Answer
 
-# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendAs -SkipSendOnBehalf -SkipFullAccess -SkipFolderPerms
+if (-not $AllMailboxes) {
+    $AllMailboxes = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
+}
 
-# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendAs -SkipSendOnBehalf -SkipFolderPerms
+function Get-DecisionCount {
+    param (
+        [Parameter()]
+        $Count,
 
-# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendAs -SkipFullAccess -SkipFolderPerms
+        [Parameter()]
+        $AllMailboxes
+    )
 
-# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendAs -SkipSendOnBehalf -SkipFullAccess
+    $ReportPath = Join-Path ([Environment]::GetFolderPath("Desktop")) Permissions
 
-# Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose -SkipSendOnBehalf -SkipFullAccess -SkipFolderPerms
+    Write-Host "`nTotal Mailboxes Found: $Count " -ForegroundColor Green
 
-Get-MailboxMoveOnPremisesPermissionReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose
+    $ConfirmCount = Read-Host "Do you want to split the count?:(y/n)"
+
+    if ($Count -and $ConfirmCount -eq 'y') {
+        Write-Host "When promted, provide 'StartNumber' and 'EndNumber' to split the accounts" -ForegroundColor Yellow
+        Write-Host "################## FOR EXAMPLE ##############################"
+        Write-Host "If you want to run for first 1000 users"
+        Write-Host "Enter 'StartNumber' as '0' and 'EndNumber' as '999'`n"
+        Write-Host "If you want to run for second 1000 users"
+        Write-Host "Enter 'StartNumber' as '1000' and 'EndNumber' as '1999' and so on...`n"
+        Write-Host "#############################################################`n"
+        $Start = Read-Host "Enter StartNumber"
+        $End = Read-Host "Enter EndNumber"
+        Write-Host "`n"
+    }
+
+    $ParameterSplat = @{
+        'Verbose'    = $true
+        'ReportPath' = $ReportPath
+    }
+
+    if ($End) {
+        $ParameterSplat.Add('Start', $Start)
+        $ParameterSplat.Add('End', $End)
+    }
+
+    $SendAs = Read-Host "Get SendAs Permissions?:(y/n)"
+    if ($SendAs -eq 'y') {
+        $ParameterSplat.Add('SkipSendAs', $false)
+    }
+    else {
+        $ParameterSplat.Add('SkipSendAs', $true)
+    }
+
+    $FullAccess = Read-Host "Get FullAccess Permissions?:(y/n)"
+    if ($FullAccess -eq 'y') {
+        $ParameterSplat.Add('SkipFullAccess', $false)
+    }
+    else {
+        $ParameterSplat.Add('SkipFullAccess', $true)
+    }
+
+    $SendOnBehalf = Read-Host "Get SendOnBehalf Permissions?:(y/n)"
+    if ($SendOnBehalf -eq 'y') {
+        $ParameterSplat.Add('SkipSendOnBehalf', $false)
+    }
+    else {
+        $ParameterSplat.Add('SkipSendOnBehalf', $true)
+    }
+
+    $Folder = Read-Host "Get Folder Permissions?:(y/n)"
+    if ($Folder -eq 'y') {
+        $ParameterSplat.Add('SkipFolderPerms', $false)
+    }
+    else {
+        $ParameterSplat.Add('SkipFolderPerms', $true)
+    }
+    if ($AllMailboxes) {
+        $ParameterSplat.Add('AllMailboxes', $AllMailboxes)
+    }
+    $ParameterSplat
+}
+
+$MailboxCount = $AllMailboxes.count
 
 
+#######################################################
+#  Each time you specify a new batch of mailboxes run:
+#   Get-Answer
+#      ... and the following...
 
-#######
+$ParameterSplat = Get-DecisionCount -Count $MailboxCount -AllMailboxes $AllMailboxes
+
+Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
+
+#
+#
+#
+#######################################################
+
 
 
