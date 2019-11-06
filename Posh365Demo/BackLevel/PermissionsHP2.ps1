@@ -1243,7 +1243,13 @@ function Get-Answer {
 Get-Answer
 
 if (-not $AllMailboxes) {
-    $AllMailboxes = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
+    if (Test-Path -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) AllMailboxes.xml)) {
+        $AllMailboxes = Import-Clixml -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) AllMailboxes.xml)
+    }
+    else {
+        $AllMailboxes = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
+        $AllMailboxes | Export-Clixml -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) AllMailboxes.xml)
+    }
 }
 
 function Get-DecisionCount {
