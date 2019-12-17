@@ -95,14 +95,13 @@ function Get-MailboxMoveOnPremisesPermissionReport {
             $ADUserList = Get-ADUsersAndGroups -DomainNameHash $DomainNameHash -ADGroups $ADGroups
             $ADUserList | Export-Clixml -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) ADUserList.xml)
         }
-        if (-not $UserGroupHash) {
-            $Global:UserGroupHash = @{ }
-            $ADUserList | ForEach-Object { $usergrouphash.Add($_.ObjectGuid, @{
-                        'PrimarySmtpAddress' = $_.PrimarySmtpAddress
-                        'DisplayName'        = $_.DisplayName
-                        'UserPrincipalName'  = $_.UserPrincipalName
-                    }) }
-        }
+        $UserGroupHash = @{ }
+        # $Global:UserGroupHash = @{ }
+        $ADUserList | ForEach-Object { $usergrouphash.Add(($_.ObjectGuid).ToString(), @{
+                    'PrimarySmtpAddress' = $_.PrimarySmtpAddress
+                    'DisplayName'        = $_.DisplayName
+                    'UserPrincipalName'  = $_.UserPrincipalName
+                }) }
         Write-Verbose "Collecting Hashtable of Group Membership"
         $GroupMemberHash = Get-ADGroupMemberHash -DomainNameHash $DomainNameHash -UserGroupHash $UserGroupHash -ADGroups $ADGroups
 
@@ -277,7 +276,7 @@ function Get-ADUsersAndGroups {
         $ADGroups
     )
     try {
-        import-module activedirectory -ErrorAction Stop -Verbose:$false
+        Import-Module activedirectory -ErrorAction Stop -Verbose:$false
     }
     catch {
         Write-Host "This module depends on the ActiveDirectory module."
@@ -433,7 +432,8 @@ Function Get-MailboxMoveFolderPermission {
         )
         Write-Verbose "Caching hashtable. DisplayName as Key and Values of UPN, PrimarySMTP, msExchRecipientTypeDetails & msExchRecipientDisplayType"
         if (-not $ADHashDisplayName) {
-            $Global:ADHashDisplayName = $ADUserList | Get-ADHashDisplayName #-erroraction silentlycontinue
+            # $Global:ADHashDisplayName = $ADUserList | Get-ADHashDisplayName #-erroraction silentlycontinue
+            $ADHashDisplayName = $ADUserList | Get-ADHashDisplayName #-erroraction silentlycontinue
         }
 
         $FolderPermSplat = @{
@@ -500,18 +500,18 @@ function Get-MailboxFolderPerms {
                     # also works $Logon = $ADHashDisplayName["$($CalAccess.User)"].logon
                     $Logon = $ADHashDisplayName."$($CalAccess.User)".logon
                     $DisplayType = $ADHashDisplayName."$($CalAccess.User)".msExchRecipientDisplayType
-                    if ($GroupMemberHash.$("$Logon").Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
-                        foreach ($Member in @($GroupMemberHash.$("$Logon").Members)) {
-                            Write-Verbose "`tcalendar group member`t$Member"
+                    if ($GroupMemberHash.$("$Logon").Guid -and $ADHashDisplay["$DisplayType"] -match 'group') {
+                        foreach ($Member in @($GroupMemberHash.$("$Logon").Guid)) {
+                            # Write-Verbose "`tcalendar group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
                                 UserPrincipalName  = $Mailbox.UserPrincipalName
                                 PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
                                 Folder             = 'CALENDAR'
                                 AccessRights       = ($CalAccess.AccessRights) -join ','
-                                Granted            = $UserGroupHash[$Member].DisplayName
-                                GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
-                                GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                                Granted            = $UserGroupHash[$Member.ToString()].DisplayName
+                                GrantedUPN         = $UserGroupHash[$Member.ToString()].UserPrincipalName
+                                GrantedSMTP        = $UserGroupHash[$Member.ToString()].PrimarySMTPAddress
                                 Checking           = $CalAccess.User
                                 TypeDetails        = "GroupMember"
                                 DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($CalAccess.User)".msExchRecipientDisplayType)"
@@ -546,18 +546,18 @@ function Get-MailboxFolderPerms {
                 Foreach ($InboxAccess in $InboxAccessList) {
                     $Logon = $ADHashDisplayName."$($InboxAccess.User)".logon
                     $DisplayType = $ADHashDisplayName."$($InboxAccess.User)".msExchRecipientDisplayType
-                    if ($GroupMemberHash.$("$Logon").Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
-                        foreach ($Member in @($GroupMemberHash.$("$Logon").Members)) {
-                            Write-Verbose "`tinbox group member`t$Member"
+                    if ($GroupMemberHash.$("$Logon").Guid -and $ADHashDisplay["$DisplayType"] -match 'group') {
+                        foreach ($Member in @($GroupMemberHash.$("$Logon").Guid)) {
+                            # Write-Verbose "`tinbox group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
                                 UserPrincipalName  = $Mailbox.UserPrincipalName
                                 PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
                                 Folder             = 'INBOX'
                                 AccessRights       = ($InboxAccess.AccessRights) -join ','
-                                Granted            = $UserGroupHash[$Member].DisplayName
-                                GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
-                                GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                                Granted            = $UserGroupHash[$Member.ToString()].DisplayName
+                                GrantedUPN         = $UserGroupHash[$Member.ToString()].UserPrincipalName
+                                GrantedSMTP        = $UserGroupHash[$Member.ToString()].PrimarySMTPAddress
                                 Checking           = $InboxAccess.User
                                 TypeDetails        = "GroupMember"
                                 DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($InboxAccess.User)".msExchRecipientDisplayType)"
@@ -592,18 +592,18 @@ function Get-MailboxFolderPerms {
                 Foreach ($SentAccess in $SentAccessList) {
                     $Logon = $ADHashDisplayName."$($SentAccess.User)".logon
                     $DisplayType = $ADHashDisplayName."$($SentAccess.User)".msExchRecipientDisplayType
-                    if ($GroupMemberHash.$("$Logon").Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
-                        foreach ($Member in @($GroupMemberHash.$("$Logon").Members)) {
-                            Write-Verbose "`tsentitems group member`t$Member"
+                    if ($GroupMemberHash.$("$Logon").Guid -and $ADHashDisplay["$DisplayType"] -match 'group') {
+                        foreach ($Member in @($GroupMemberHash.$("$Logon").Guid)) {
+                            # Write-Verbose "`tsentitems group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
                                 UserPrincipalName  = $Mailbox.UserPrincipalName
                                 PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
                                 Folder             = 'SENTITEMS'
                                 AccessRights       = ($SentAccess.AccessRights) -join ','
-                                Granted            = $UserGroupHash[$Member].DisplayName
-                                GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
-                                GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                                Granted            = $UserGroupHash[$Member.ToString()].DisplayName
+                                GrantedUPN         = $UserGroupHash[$Member.ToString()].UserPrincipalName
+                                GrantedSMTP        = $UserGroupHash[$Member.ToString()].PrimarySMTPAddress
                                 Checking           = $SentAccess.User
                                 TypeDetails        = "GroupMember"
                                 DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($SentAccess.User)".msExchRecipientDisplayType)"
@@ -638,18 +638,18 @@ function Get-MailboxFolderPerms {
                 Foreach ($ContactsAccess in $ContactsAccessList) {
                     $Logon = $ADHashDisplayName[$ContactsAccess.User].logon
                     $DisplayType = $ADHashDisplayName[$ContactsAccess.User].msExchRecipientDisplayType
-                    if ($GroupMemberHash.$("$Logon").Members -and $ADHashDisplay["$DisplayType"] -match 'group') {
-                        foreach ($Member in @($GroupMemberHash.$("$Logon").Members)) {
-                            Write-Verbose "`tcontacts group member`t$Member"
+                    if ($GroupMemberHash.$("$Logon").Guid -and $ADHashDisplay["$DisplayType"] -match 'group') {
+                        foreach ($Member in @($GroupMemberHash.$("$Logon").Guid)) {
+                            # Write-Verbose "`tcontacts group member`t$Member"
                             New-Object -TypeName psobject -property @{
                                 Object             = $Mailbox.DisplayName
                                 UserPrincipalName  = $Mailbox.UserPrincipalName
                                 PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
                                 Folder             = 'CONTACTS'
                                 AccessRights       = ($ContactsAccess.AccessRights) -join ','
-                                Granted            = $UserGroupHash[$Member].DisplayName
-                                GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
-                                GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                                Granted            = $UserGroupHash[$Member.ToString()].DisplayName
+                                GrantedUPN         = $UserGroupHash[$Member.ToString()].UserPrincipalName
+                                GrantedSMTP        = $UserGroupHash[$Member.ToString()].PrimarySMTPAddress
                                 Checking           = $ContactsAccess.User
                                 TypeDetails        = "GroupMember"
                                 DisplayType        = $ADHashDisplay."$($ADHashDisplayName."$($ContactsAccess.User)".msExchRecipientDisplayType)"
@@ -800,11 +800,11 @@ function Get-ADGroupMemberHash {
     else {
         $GroupMemberHash = @{ }
         $ADGroups | ForEach-Object {
-            write-host "Caching Group Members: " -ForegroundColor Green -NoNewline
-            write-host "$(($_.CanonicalName).Split('/')[0])" -ForegroundColor White -NoNewline
-            write-host " - $($_.Name) " -ForegroundColor Green
+            Write-Host "Caching Group Members: " -ForegroundColor Green -NoNewline
+            Write-Host "$(($_.CanonicalName).Split('/')[0])" -ForegroundColor White -NoNewline
+            Write-Host " - $($_.Name) " -ForegroundColor Green
             $GroupMemberHash.Add( ($DomainNameHash.($_.distinguishedname -replace '^.+?DC=' -replace ',DC=', '.')) + "\" + $_.samaccountname,
-                (@(Get-ADSIGroupMember -Identity $_.SID -Recurse -DomainName ($_.CanonicalName).Split('/')[0]) -ne '' | foreach-object { $_.Guid }))
+                (@(Get-ADSIGroupMember -Identity $_.SID -Recurse -DomainName ($_.CanonicalName).Split('/')[0]) -ne '' | ForEach-Object { $_.Guid }))
         }
         $GroupMemberHash | Export-Clixml -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) GroupMemberHash.xml)
         $GroupMemberHash
@@ -821,7 +821,7 @@ function ConvertTo-NetBios {
     $configContext = $root.Properties["configurationNamingContext"][0]
     $searchr = [adsi] "LDAP://cn=Partitions,$configContext"
 
-    $search = new-object System.DirectoryServices.DirectorySearcher
+    $search = New-Object System.DirectoryServices.DirectorySearcher
     $search.SearchRoot = $searchr
     $search.SearchScope = [System.DirectoryServices.SearchScope] "OneLevel"
     $search.filter = "(&(objectcategory=Crossref)(dnsRoot=$domainName)(netBIOSName=*))"
@@ -869,7 +869,7 @@ function Get-SendAsPerms {
     }
     process {
         foreach ($ADUser in $DistinguishedName) {
-            # Write-Verbose "Inspecting:`t $ADUser"
+            Write-Host "Inspecting SendOnBehalf: `t $ADUser" -ForegroundColor Green
             Get-ADPermission $ADUser | Where-Object {
                 $_.ExtendedRights -like "*Send-As*" -and
                 ($_.IsInherited -eq $false) -and
@@ -878,17 +878,17 @@ function Get-SendAsPerms {
                 !$_.Deny
             } | ForEach-Object {
                 $HasPerm = $_.User
-                if ($GroupMemberHash."$($HasPerm)".Members -and
+                if ($GroupMemberHash[$HasPerm.ToString()] -and
                     $ADHashDisplay."$($ADHash["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
-                    foreach ($Member in @($GroupMemberHash.$("$HasPerm").Members)) {
-                        # Write-Verbose "`tsendas group member`t$Member"
+                    foreach ($Member in @($GroupMemberHash[$HasPerm.ToString()])) {
+                        Write-Verbose "`tSendAs Group Member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $ADHashDN["$ADUser"].DisplayName
                             UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
                             PrimarySMTPAddress = $ADHashDN["$ADUser"].PrimarySMTPAddress
-                            Granted            = $UserGroupHash[$Member].DisplayName
-                            GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
-                            GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                            Granted            = $UserGroupHash["$Member"].DisplayName
+                            GrantedUPN         = $UserGroupHash["$Member"].UserPrincipalName
+                            GrantedSMTP        = $UserGroupHash["$Member"].PrimarySMTPAddress
                             Checking           = $HasPerm
                             TypeDetails        = "GroupMember"
                             DisplayType        = $ADHashDisplay."$($ADHash["$HasPerm"].msExchRecipientDisplayType)"
@@ -897,7 +897,7 @@ function Get-SendAsPerms {
                     }
                 }
                 elseif ( $ADHash."$($HasPerm)".objectClass -notmatch 'group') {
-                    # Write-Host "sendas user`t$HasPerm" -ForegroundColor Green
+                    Write-Verbose "SendAs User`t$HasPerm"
                     New-Object -TypeName psobject -property @{
                         Object             = $ADHashDN["$ADUser"].DisplayName
                         UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
@@ -954,20 +954,20 @@ function Get-SendOnBehalfPerms {
     }
     process {
         foreach ($Mailbox in $MailboxList) {
-            # Write-Verbose "Inspecting: `t $Mailbox"
+            Write-Host "Inspecting SendOnBehalf: `t $Mailbox" -ForegroundColor Green
             foreach ($HasPerm in @($Mailbox.GrantSendOnBehalfTo)) {
                 $Logon = $ADHashCN.$HasPerm.logon
-                if ($GroupMemberHash.$("$Logon").Members -and
-                    $ADHashDisplay."$($ADHashCN["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
-                    foreach ($Member in @($GroupMemberHash.$("$Logon").Members)) {
-                        # Write-Verbose "`tsendonbehalf group member`t$Member"
+                if ($GroupMemberHash[$Logon.ToString()] -and
+                    $ADHashDisplay."$($ADHash[$Logon.ToString()].msExchRecipientDisplayType)" -match 'group') {
+                    foreach ($Member in @($GroupMemberHash[$Logon.ToString()])) {
+                        Write-Verbose "`tSendOnBehalf Group Member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $Mailbox.DisplayName
                             UserPrincipalName  = $Mailbox.UserPrincipalName
                             PrimarySMTPAddress = $Mailbox.PrimarySMTPAddress
-                            Granted            = $UserGroupHash[$Member].DisplayName
-                            GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
-                            GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                            Granted            = $UserGroupHash["$Member"].DisplayName
+                            GrantedUPN         = $UserGroupHash["$Member"].UserPrincipalName
+                            GrantedSMTP        = $UserGroupHash["$Member"].PrimarySMTPAddress
                             Checking           = $ADHashCN.$HasPerm.DisplayName
                             TypeDetails        = "GroupMember"
                             DisplayType        = $ADHashDisplay."$($ADHashCN["$HasPerm"].msExchRecipientDisplayType)"
@@ -976,7 +976,7 @@ function Get-SendOnBehalfPerms {
                     }
                 }
                 elseif ( $ADHash["$HasPerm"].objectClass -notmatch 'group') {
-                    # Write-Host "sendonbehalf user`t$HasPerm" -ForegroundColor Green
+                    Write-Verbose "SendOnBehalf User`t$HasPerm"
                     New-Object -TypeName psobject -property @{
                         Object             = $Mailbox.DisplayName
                         UserPrincipalName  = $Mailbox.UserPrincipalName
@@ -1034,7 +1034,7 @@ function Get-FullAccessPerms {
     }
     process {
         foreach ($ADUser in $ADUserList) {
-            # Write-Verbose "Inspecting:`t $ADUser"
+            Write-Host "Inspecting FullAccess: `t $ADUser" -ForegroundColor Green
             @(Get-MailboxPermission $ADUser) -ne '' |
             Where-Object {
                 $_.AccessRights -like "*FullAccess*" -and
@@ -1043,17 +1043,17 @@ function Get-FullAccessPerms {
                 !$_.Deny
             } | ForEach-Object {
                 $HasPerm = $_.User
-                if ($GroupMemberHash[$HasPerm].Members -and
-                    $ADHashDisplay."$($ADHash["$HasPerm"].msExchRecipientDisplayType)" -match 'group') {
-                    foreach ($Member in @($GroupMemberHash[$HasPerm].Members)) {
-                        # Write-Verbose "`tfullaccess group member`t$Member"
+                if ($GroupMemberHash[$HasPerm.ToString()] -and
+                    $ADHashDisplay."$($ADHash[$HasPerm.ToString()].msExchRecipientDisplayType)" -match 'group') {
+                    foreach ($Member in @($GroupMemberHash[$HasPerm.ToString()])) {
+                        Write-Verbose "`tfullaccess group member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $ADHashDN["$ADUser"].DisplayName
                             UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
                             PrimarySMTPAddress = $ADHashDN["$ADUser"].PrimarySMTPAddress
-                            Granted            = $UserGroupHash[$Member].DisplayName
-                            GrantedUPN         = $UserGroupHash[$Member].UserPrincipalName
-                            GrantedSMTP        = $UserGroupHash[$Member].PrimarySMTPAddress
+                            Granted            = $UserGroupHash["$Member"].DisplayName
+                            GrantedUPN         = $UserGroupHash["$Member"].UserPrincipalName
+                            GrantedSMTP        = $UserGroupHash["$Member"].PrimarySMTPAddress
                             Checking           = $HasPerm
                             TypeDetails        = "GroupMember"
                             DisplayType        = $ADHashDisplay."$($ADHash["$HasPerm"].msExchRecipientDisplayType)"
@@ -1062,7 +1062,7 @@ function Get-FullAccessPerms {
                     }
                 }
                 elseif ( $ADHash["$HasPerm"].objectClass -notmatch 'group') {
-                    # Write-Host "fullaccess user`t$HasPerm" -ForegroundColor Green
+                    Write-Host "fullaccess user`t$HasPerm" -ForegroundColor Green
                     New-Object -TypeName psobject -property @{
                         Object             = $ADHashDN["$ADUser"].DisplayName
                         UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
@@ -1106,11 +1106,11 @@ function Connect-Exchange {
 
     if (-not ($null = Test-Path $CredFile)) {
         [System.Management.Automation.PSCredential]$Credential = Get-Credential -Message 'Enter on-premises Exchange username and password'
-        [System.Management.Automation.PSCredential]$Credential | Export-CliXml -Path $CredFile
-        [System.Management.Automation.PSCredential]$Credential = Import-CliXml -Path $CredFile
+        [System.Management.Automation.PSCredential]$Credential | Export-Clixml -Path $CredFile
+        [System.Management.Automation.PSCredential]$Credential = Import-Clixml -Path $CredFile
     }
     else {
-        [System.Management.Automation.PSCredential]$Credential = Import-CliXml -Path $CredFile
+        [System.Management.Automation.PSCredential]$Credential = Import-Clixml -Path $CredFile
     }
     $SessionSplat = @{
         Name              = "OnPremExchange"
@@ -1363,6 +1363,5 @@ Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
 # Get-Answer ; $ParameterSplat = Get-DecisionCount -Count $MailboxCount -AllMailboxes $AllMailboxes ; Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
 #
 #######################################################
-
 
 
