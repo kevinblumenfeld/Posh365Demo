@@ -869,7 +869,7 @@ function Get-SendAsPerms {
     }
     process {
         foreach ($ADUser in $DistinguishedName) {
-            Write-Host "Inspecting SendOnBehalf: `t $ADUser" -ForegroundColor Green
+            Write-Host "Inspecting SendAs: `t $ADUser" -ForegroundColor Green
             Get-ADPermission $ADUser | Where-Object {
                 $_.ExtendedRights -like "*Send-As*" -and
                 ($_.IsInherited -eq $false) -and
@@ -1046,7 +1046,7 @@ function Get-FullAccessPerms {
                 if ($GroupMemberHash[$HasPerm.ToString()] -and
                     $ADHashDisplay."$($ADHash[$HasPerm.ToString()].msExchRecipientDisplayType)" -match 'group') {
                     foreach ($Member in @($GroupMemberHash[$HasPerm.ToString()])) {
-                        Write-Verbose "`tfullaccess group member`t$Member"
+                        Write-Verbose "`tFullAccess Group Member`t$Member"
                         New-Object -TypeName psobject -property @{
                             Object             = $ADHashDN["$ADUser"].DisplayName
                             UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
@@ -1062,7 +1062,7 @@ function Get-FullAccessPerms {
                     }
                 }
                 elseif ( $ADHash["$HasPerm"].objectClass -notmatch 'group') {
-                    Write-Host "fullaccess user`t$HasPerm" -ForegroundColor Green
+                    Write-Host "FullAccess User`t$HasPerm" -ForegroundColor Green
                     New-Object -TypeName psobject -property @{
                         Object             = $ADHashDN["$ADUser"].DisplayName
                         UserPrincipalName  = $ADHashDN["$ADUser"].UserPrincipalName
