@@ -269,7 +269,7 @@ function Get-Answer {
         Get-Answer
     }
     if ($Answer -eq "Y") {
-        $ServerName = Read-Host "Type then name of the Exchange Server and hit enter"
+        $ServerName = Read-Host "Type the name of the Exchange Server and hit enter"
         Connect-Exchange -Server $ServerName
     }
 
