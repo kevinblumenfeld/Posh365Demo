@@ -81,6 +81,7 @@ Function Get-MailboxMoveOnPremisesReportHelper {
                 Alias                      = $Mailbox.Alias
                 Database                   = $Mailbox.Database
                 OU                         = ($Mailbox.DistinguishedName -replace '^.+?,(?=(OU|CN)=)')
+                Department                 = $ADHash[$Mailbox.UserPrincipalName]
                 Office                     = $Mailbox.Office
                 RecipientTypeDetails       = $Mailbox.RecipientTypeDetails
                 UMEnabled                  = $Mailbox.UMEnabled
@@ -95,12 +96,6 @@ Function Get-MailboxMoveOnPremisesReportHelper {
             else {
                 $PSHash.Add('ForwardingAddress', '')
                 $PSHash.Add('ForwardingRecipientType', '')
-            }
-            if ($Mailbox.UserPrincipalName) {
-                $PSHash.Add('Department', $ADHash[$Mailbox.UserPrincipalName])
-            }
-            else {
-                $PSHash.Add('Department', '')
             }
             New-Object -TypeName PSObject -Property $PSHash
         }
