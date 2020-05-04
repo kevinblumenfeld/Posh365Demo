@@ -124,7 +124,7 @@ function Get-MailboxMoveOnPremisesPermissionReport {
             else {
                 $Desktop = [Environment]::GetFolderPath("Desktop")
                 $MailboxFile = Join-Path -Path $Desktop -ChildPath 'MailboxPermissions.csv'
-                Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv $MailboxFile -NoTypeInformation -Encoding UTF8
+                Get-MailboxMoveMailboxPermission @DelegateSplat | Export-Csv $MailboxFile -NoTypeInformation -Encoding UTF8 -Append
             }
         }
         if (-not $SkipFolderPerms) {
