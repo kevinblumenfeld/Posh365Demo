@@ -1,7 +1,7 @@
 
 if (-not (Get-Module ActiveDirectory -listavailable)) {
     Write-Host "Please run from a computer with AD module" -ForegroundColor Red
-
+    break
 }
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
 Function Get-MailboxMoveOnPremisesMailboxReport {
@@ -16,13 +16,12 @@ Function Get-MailboxMoveOnPremisesMailboxReport {
         $BatchesFile = Join-Path $ReportPath 'Batches.csv'
         $Select = @(
             'BatchName', 'DisplayName', 'OrganizationalUnit', 'IsMigrated', 'CompleteBatchDate'
-            'CompleteBatchTimePT', 'LicenseGroup', 'EnableArchive', 'ConvertToShared'
-            'MailboxGB', 'ArchiveGB', 'DeletedGB', 'TotalGB', 'LastLogonTime'
-            'ItemCount', 'UserPrincipalName', 'PrimarySmtpAddress'
+            'CompleteBatchTimePT', 'MailboxGB', 'ArchiveGB', 'DeletedGB', 'TotalGB'
+            'LastLogonTime', 'ItemCount', 'UserPrincipalName', 'PrimarySmtpAddress'
             'AddressBookPolicy', 'RetentionPolicy', 'AccountDisabled', 'Alias'
-            'Database', 'ServerName', 'OU', 'Department', 'Office', 'RecipientTypeDetails'
-            'UMEnabled', 'ForwardingAddress', 'ForwardingRecipientType', 'ForwardingSmtpAddress'
-            'DeliverToMailboxAndForward', 'ExchangeGuid'
+            'Database', 'OU', 'Office', 'RecipientTypeDetails', 'UMEnabled'
+            'ForwardingAddress', 'ForwardingRecipientType', 'ForwardingSmtpAddress'
+            'DeliverToMailboxAndForward'
         )
         Get-MailboxMoveOnPremisesReportHelper | Select-Object $Select | Export-Csv $BatchesFile -NoTypeInformation -Encoding UTF8
 
@@ -52,21 +51,17 @@ Function Get-MailboxMoveOnPremisesReportHelper {
     )
     end {
         $RecHash = Get-MailboxMoveRecipientHash
-        $ADHash = Get-ADHash
         $MailboxList = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
         foreach ($Mailbox in $MailboxList) {
             Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
             $Statistic = $Mailbox | Get-ExchangeMailboxStatistics
             $PSHash = @{
-                BatchName                  = 'zNoBatch'
+                BatchName                  = ''
                 DisplayName                = $Mailbox.DisplayName
                 OrganizationalUnit         = $Mailbox.OrganizationalUnit
                 IsMigrated                 = ''
                 CompleteBatchDate          = ''
                 CompleteBatchTimePT        = ''
-                LicenseGroup               = ''
-                EnableArchive              = ''
-                ConvertToShared            = ''
                 MailboxGB                  = $Statistic.MailboxGB
                 ArchiveGB                  = $Statistic.ArchiveGB
                 DeletedGB                  = $Statistic.DeletedGB
@@ -80,15 +75,12 @@ Function Get-MailboxMoveOnPremisesReportHelper {
                 AccountDisabled            = $Mailbox.AccountDisabled
                 Alias                      = $Mailbox.Alias
                 Database                   = $Mailbox.Database
-                ServerName                 = $Mailbox.ServerName
                 OU                         = ($Mailbox.DistinguishedName -replace '^.+?,(?=(OU|CN)=)')
-                Department                 = $ADHash[$Mailbox.UserPrincipalName]
                 Office                     = $Mailbox.Office
                 RecipientTypeDetails       = $Mailbox.RecipientTypeDetails
                 UMEnabled                  = $Mailbox.UMEnabled
-                ForwardingSmtpAddress      = $Mailbox.ForwardingSmtpAddress
                 DeliverToMailboxAndForward = $Mailbox.DeliverToMailboxAndForward
-                ExchangeGuid               = $Mailbox.ExchangeGuid
+                ForwardingSmtpAddress      = $Mailbox.ForwardingSmtpAddress
             }
             if ($Mailbox.ForwardingAddress) {
                 $Distinguished = Convert-CanonicalToDistinguished -CanonicalName $Mailbox.ForwardingAddress
@@ -249,209 +241,6 @@ function Connect-Exchange {
     Write-Host "Connected to Exchange Server: $Server" -ForegroundColor Green
 }
 
-function New-ADSIPrincipalContext {
-    <#
-    .NOTES
-        https://github.com/lazywinadmin/ADSIPS
-
-    .LINK
-        https://msdn.microsoft.com/en-us/library/system.directoryservices.accountmanagement.principalcontext(v=vs.110).aspx
-    #>
-
-    [CmdletBinding(SupportsShouldProcess = $true)]
-    [OutputType('System.DirectoryServices.AccountManagement.PrincipalContext')]
-    param
-    (
-        [Alias("RunAs")]
-        [System.Management.Automation.PSCredential]
-        [System.Management.Automation.Credential()]
-        $Credential = [System.Management.Automation.PSCredential]::Empty,
-
-        [Parameter(Mandatory = $true)]
-        [System.DirectoryServices.AccountManagement.ContextType]$ContextType,
-
-        $DomainName = [System.DirectoryServices.ActiveDirectory.Domain]::Getcurrentdomain(),
-
-        $Container,
-
-        [System.DirectoryServices.AccountManagement.ContextOptions[]]$ContextOptions
-    )
-
-    begin {
-        $ScriptName = (Get-Variable -name MyInvocation -Scope 0 -ValueOnly).MyCommand
-        Write-Verbose -Message "[$ScriptName] Add Type System.DirectoryServices.AccountManagement"
-        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-    }
-    process {
-        try {
-            switch ($ContextType) {
-                "Domain" {
-                    $ArgumentList = $ContextType, $DomainName
-                }
-                "Machine" {
-                    $ArgumentList = $ContextType, $ComputerName
-                }
-                "ApplicationDirectory" {
-                    $ArgumentList = $ContextType
-                }
-            }
-
-            if ($PSBoundParameters['Container']) {
-                $ArgumentList += $Container
-            }
-
-            if ($PSBoundParameters['ContextOptions']) {
-                $ArgumentList += $($ContextOptions)
-            }
-
-            if ($PSBoundParameters['Credential']) {
-                # Query the specified domain or current if not entered, with the specified credentials
-                $ArgumentList += $($Credential.UserName), $($Credential.GetNetworkCredential().password)
-            }
-
-            if ($PSCmdlet.ShouldProcess($DomainName, "Create Principal Context")) {
-                # Query
-                New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList $ArgumentList
-            }
-        } #try
-        catch {
-            $PSCmdlet.ThrowTerminatingError($_)
-        }
-    } #process
-}
-
-function Get-ADSIUser {
-    <#
-    .NOTES
-        https://github.com/lazywinadmin/ADSIPS
-    .LINK
-        https://msdn.microsoft.com/en-us/library/System.DirectoryServices.AccountManagement.UserPrincipal(v=vs.110).aspx
-    #>
-
-    [CmdletBinding(DefaultParameterSetName = "All")]
-    [OutputType('System.DirectoryServices.AccountManagement.UserPrincipal')]
-    param
-    (
-        [Parameter(Mandatory = $true, Position = 0, ParameterSetName = "Identity")]
-        [string]$Identity,
-
-        [Alias("RunAs")]
-        [System.Management.Automation.PSCredential]
-        [System.Management.Automation.Credential()]
-        $Credential = [System.Management.Automation.PSCredential]::Empty,
-
-        [String]$DomainName,
-
-        [Parameter(Mandatory = $true, ParameterSetName = "LDAPFilter")]
-        [string]$LDAPFilter,
-
-        [Parameter(ParameterSetName = "LDAPFilter")]
-        [Parameter(ParameterSetName = "All")]
-        [Switch]$NoResultLimit
-
-    )
-
-    begin {
-        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-
-        # Create Context splatting
-        $ContextSplatting = @{ ContextType = "Domain" }
-
-        if ($PSBoundParameters['Credential']) {
-            $ContextSplatting.Credential = $Credential
-        }
-        if ($PSBoundParameters['DomainName']) {
-            $ContextSplatting.DomainName = $DomainName
-        }
-
-        $Context = New-ADSIPrincipalContext @ContextSplatting
-    }
-    process {
-        if ($Identity) {
-            Write-Verbose -Message "Identity"
-            try {
-                [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($Context, $Identity)
-            }
-            catch {
-                if ($_.Exception.Message.ToString().EndsWith('"Multiple principals contain a matching Identity."')) {
-                    $errorMessage = "[Get-ADSIUser] On line $($_.InvocationInfo.ScriptLineNumber) - We found multiple entries for Identity: '$($Identity)'. Please specify a samAccountName, or something more specific."
-                    $MultipleEntriesFoundException = [System.Exception]::new($errorMessage)
-                    throw $MultipleEntriesFoundException
-                }
-                else {
-                    $PSCmdlet.ThrowTerminatingError($_)
-                }
-            }
-        }
-        elseif ($PSBoundParameters['LDAPFilter']) {
-
-            # Directory Entry object
-            $DirectoryEntryParams = $ContextSplatting
-            $DirectoryEntryParams.remove('ContextType')
-            $DirectoryEntry = New-ADSIDirectoryEntry @DirectoryEntryParams
-
-            # Principal Searcher
-            $DirectorySearcher = New-Object -TypeName System.DirectoryServices.DirectorySearcher
-            $DirectorySearcher.SearchRoot = $DirectoryEntry
-
-            $DirectorySearcher.Filter = "(&(objectCategory=user)$LDAPFilter)"
-            #$DirectorySearcher.PropertiesToLoad.AddRange("'Enabled','SamAccountName','DistinguishedName','Sid','DistinguishedName'")
-
-            if (-not$PSBoundParameters['NoResultLimit']) {
-                Write-Warning -Message "Result is limited to 1000 entries, specify a specific number on the parameter SizeLimit or 0 to remove the limit"
-            }
-            else {
-                # SizeLimit is useless, even if there is a$Searcher.GetUnderlyingSearcher().sizelimit=$SizeLimit
-                # the server limit is kept
-                $DirectorySearcher.PageSize = 10000
-            }
-
-            $DirectorySearcher.FindAll() | ForEach-Object -Process {
-                [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($Context, $_.Properties["distinguishedname"])
-            }# Return UserPrincipale object
-        }
-        else {
-            Write-Verbose -Message "Searcher"
-
-            $UserPrincipal = New-Object -TypeName System.DirectoryServices.AccountManagement.UserPrincipal -ArgumentList $Context
-            $Searcher = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalSearcher
-            $Searcher.QueryFilter = $UserPrincipal
-
-            if (-not$PSBoundParameters['NoResultLimit']) {
-                Write-Warning -Message "Result is limited to 1000 entries, specify a specific number on the parameter SizeLimit or 0 to remove the limit"
-            }
-            else {
-                # SizeLimit is useless, even if there is a$Searcher.GetUnderlyingSearcher().sizelimit=$SizeLimit
-                # the server limit is kept
-                $Searcher.GetUnderlyingSearcher().pagesize = 10000
-
-            }
-            #$Searcher.GetUnderlyingSearcher().propertiestoload.AddRange("'Enabled','SamAccountName','DistinguishedName','Sid','DistinguishedName'")
-            $Searcher.FindAll() # Return UserPrincipale
-        }
-    }
-}
-
-
-function Get-ADHash {
-    $ADUsers = Get-ADSIUser -NoResultLimit
-    $AllAdusers = $ADUsers.GetUnderlyingObject() | Select-Object -Property @(
-        @{
-            Name       = 'UserPrincipalName'
-            Expression = { $_.UserPrincipalName }
-        }
-        @{
-            Name       = 'Department'
-            Expression = { $_.Department }
-        }
-    )
-    $UserHash = @{ }
-    $UserList = $AllAdusers.where( { $_.UserPrincipalName })
-    foreach ($User in $UserList) {
-        $UserHash[$User.UserPrincipalName] = $User.Department
-    }
-    $UserHash
-}
 
 $InstallSplat = @{
     Name        = 'ImportExcel'
@@ -476,13 +265,11 @@ function Get-Answer {
         Get-Answer
     }
     if ($Answer -eq "Y") {
-        $ServerName = Read-Host "Type the name of the Exchange Server and hit enter"
+        $ServerName = Read-Host "Type then name of the Exchange Server and hit enter"
         Connect-Exchange -Server $ServerName
     }
 
 }
-
-
 Get-Answer
 Get-MailboxMoveOnPremisesMailboxReport -ReportPath ([Environment]::GetFolderPath("Desktop")) -Verbose
 
