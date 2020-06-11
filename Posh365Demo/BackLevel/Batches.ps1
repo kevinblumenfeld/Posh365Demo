@@ -1,4 +1,4 @@
-
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 if (-not (Get-Module ActiveDirectory -listavailable)) {
     Write-Host "Please run from a computer with AD module" -ForegroundColor Red
 

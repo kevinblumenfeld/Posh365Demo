@@ -1,6 +1,7 @@
 # Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
 
 # Start-Transcript -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) Transcript.txt) -Append
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 function Get-MailboxMoveOnPremisesPermissionReport {
     [CmdletBinding()]
     param (
