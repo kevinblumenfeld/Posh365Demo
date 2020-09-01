@@ -1,8 +1,4 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-if (-not (Get-Module ActiveDirectory -listavailable)) {
-    Write-Host "Please run from a computer with AD module" -ForegroundColor Red
-
-}
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
 Function Get-MailboxMoveOnPremisesMailboxReport {
     [CmdletBinding()]
@@ -15,12 +11,11 @@ Function Get-MailboxMoveOnPremisesMailboxReport {
         New-Item -ItemType Directory -Path $ReportPath -ErrorAction SilentlyContinue
         $BatchesFile = Join-Path $ReportPath 'Batches.csv'
         $Select = @(
-            'BatchName', 'DisplayName', 'OrganizationalUnit', 'IsMigrated', 'CompleteBatchDate'
-            'CompleteBatchTimePT', 'LicenseGroup', 'EnableArchive', 'ConvertToShared'
-            'MailboxGB', 'ArchiveGB', 'DeletedGB', 'TotalGB', 'LastLogonTime'
-            'ItemCount', 'UserPrincipalName', 'PrimarySmtpAddress'
-            'AddressBookPolicy', 'RetentionPolicy', 'AccountDisabled', 'Alias'
-            'Database', 'ServerName', 'OU', 'Department', 'Office', 'RecipientTypeDetails'
+            'BatchName', 'DisplayName', 'Enabled', 'OrganizationalUnit', 'IsMigrated', 'CompleteBatchDate'
+            'CompleteBatchTimePT', 'LicenseGroup', 'EnableArchive', 'ConvertToShared', 'MailboxGB'
+            'ArchiveGB', 'DeletedGB', 'TotalGB', 'LastLogonTime', 'ItemCount', 'UserPrincipalName'
+            'PrimarySmtpAddress', 'AddressBookPolicy', 'RetentionPolicy', 'Alias', 'Database'
+            'ServerName', 'OU', 'Department', 'Office', 'SamAccountName', 'RecipientTypeDetails'
             'UMEnabled', 'ForwardingAddress', 'ForwardingRecipientType', 'ForwardingSmtpAddress'
             'DeliverToMailboxAndForward', 'ExchangeGuid'
         )
@@ -77,12 +72,13 @@ Function Get-MailboxMoveOnPremisesReportHelper {
                 PrimarySmtpAddress         = $Mailbox.PrimarySmtpAddress
                 AddressBookPolicy          = $Mailbox.AddressBookPolicy
                 RetentionPolicy            = $Mailbox.RetentionPolicy
-                AccountDisabled            = $Mailbox.AccountDisabled
+                Enabled                    = $ADHash[$Mailbox.UserPrincipalName]['Enabled']
+                SamAccountName             = $ADHash[$Mailbox.UserPrincipalName]['SamAccountName']
                 Alias                      = $Mailbox.Alias
                 Database                   = $Mailbox.Database
                 ServerName                 = $Mailbox.ServerName
                 OU                         = ($Mailbox.DistinguishedName -replace '^.+?,(?=(OU|CN)=)')
-                Department                 = $ADHash[$Mailbox.UserPrincipalName]
+                Department                 = $ADHash[$Mailbox.UserPrincipalName]['Department']
                 Office                     = $Mailbox.Office
                 RecipientTypeDetails       = $Mailbox.RecipientTypeDetails
                 UMEnabled                  = $Mailbox.UMEnabled
@@ -435,20 +431,14 @@ function Get-ADSIUser {
 
 function Get-ADHash {
     $ADUsers = Get-ADSIUser -NoResultLimit
-    $AllAdusers = $ADUsers.GetUnderlyingObject() | Select-Object -Property @(
-        @{
-            Name       = 'UserPrincipalName'
-            Expression = { $_.UserPrincipalName }
-        }
-        @{
-            Name       = 'Department'
-            Expression = { $_.Department }
-        }
-    )
     $UserHash = @{ }
-    $UserList = $AllAdusers.where( { $_.UserPrincipalName })
+    $UserList = $ADUsers.where( { $_.UserPrincipalName })
     foreach ($User in $UserList) {
-        $UserHash[$User.UserPrincipalName] = $User.Department
+        $UserHash[$User.UserPrincipalName] = @{
+            Department     = $User.Department
+            Enabled        = $User.Enabled
+            SamAccountName = $User.SamAccountName
+        }
     }
     $UserHash
 }
