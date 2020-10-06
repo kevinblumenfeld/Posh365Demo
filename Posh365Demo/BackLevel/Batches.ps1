@@ -435,7 +435,7 @@ function Get-ADHash {
     $UserList = $ADUsers.where( { $_.UserPrincipalName })
     foreach ($User in $UserList) {
         $UserHash[$User.UserPrincipalName] = @{
-            Department     = $User.Department
+            Department     = $User.GetUnderlyingObject()| Select-Object -ExpandProperty Department
             Enabled        = $User.Enabled
             SamAccountName = $User.SamAccountName
         }
