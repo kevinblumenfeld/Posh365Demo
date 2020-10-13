@@ -2,6 +2,30 @@
 
 # Start-Transcript -Path (Join-Path ([Environment]::GetFolderPath("Desktop")) Transcript.txt) -Append
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+
+function Group-SplitPermissions {
+    $Desktop = [Environment]::GetFolderPath("Desktop")
+
+    $ExcelSplat = @{
+        Path                    = (Join-Path $Desktop 'Permissions.xlsx')
+        TableStyle              = 'Medium2'
+        FreezeTopRowFirstColumn = $true
+        AutoSize                = $true
+        BoldTopRow              = $true
+        ClearSheet              = $false
+        ErrorAction             = 'SilentlyContinue'
+    }
+
+    $SplitPermFile = Join-Path -Path $Desktop -ChildPath 'Permissions'
+
+    $MailboxFile = Get-ChildItem -path $SplitPermFile -Filter "*Mailbox*.csv"
+    $MailboxFile | Where-Object { $_ } | ForEach-Object { Import-Csv $_.FullName | Export-Excel @ExcelSplat -WorksheetName 'Mailbox' -Append }
+
+    $FolderFile = Get-ChildItem -path $SplitPermFile -Filter "*Folder*.csv"
+    $FolderFile | Where-Object { $_ } | ForEach-Object { Import-Csv $_.FullName | Export-Excel @ExcelSplat -WorksheetName 'Folder' -Append }
+}
+
 function Get-MailboxMoveOnPremisesPermissionReport {
     [CmdletBinding()]
     param (
@@ -1362,7 +1386,9 @@ Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
 # Simply, copy and paste the below line into the console:
 #
 # Get-Answer ; $ParameterSplat = Get-DecisionCount -Count $MailboxCount -AllMailboxes $AllMailboxes ; Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
+# 
+# if you split the count, you can use Group-SplitPermissions     this will create an excel file Permissions.xlsx
+#
+# if you did not split the count, the Permissions.xlsx will be automatically created for you
 #
 #######################################################
-
-
