@@ -326,7 +326,7 @@ function Get-ADUsersAndGroups {
         }
         @{
             Name       = "PrimarySMTPAddress"
-            Expression = { ( $_.proxyAddresses | Where-Object { $_ -cmatch "SMTP:*" }).Substring(5) }
+            Expression = { ( $_.proxyAddresses | Where-Object { $_ -clike "SMTP:*" }).Substring(5) }
         }
     )
     $ADUserSplat = @{
@@ -1386,7 +1386,7 @@ Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
 # Simply, copy and paste the below line into the console:
 #
 # Get-Answer ; $ParameterSplat = Get-DecisionCount -Count $MailboxCount -AllMailboxes $AllMailboxes ; Get-MailboxMoveOnPremisesPermissionReport @ParameterSplat
-# 
+#
 # if you split the count, you can use Group-SplitPermissions     this will create an excel file Permissions.xlsx
 #
 # if you did not split the count, the Permissions.xlsx will be automatically created for you
