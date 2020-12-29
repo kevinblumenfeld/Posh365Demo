@@ -96,7 +96,7 @@ Function Get-MailboxMoveOnPremisesReportHelper {
                 $PSHash['ForwardingAddress'] = ''
                 $PSHash['ForwardingRecipientType'] = ''
             }
-            New-Object -TypeName PSObject -Property $PSHash
+            [PSCustomObject]$PSHash
         }
     }
 }
