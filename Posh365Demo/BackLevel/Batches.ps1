@@ -49,6 +49,7 @@ Function Get-MailboxMoveOnPremisesReportHelper {
         $RecHash = Get-MailboxMoveRecipientHash
         $ADHash = Get-ADHash
         $MailboxList = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
+        $MailboxList = $MailboxList | Where-Object { $_.RecipientTypeDetails -ne 'DiscoveryMailbox' }
         foreach ($Mailbox in $MailboxList) {
             Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
             $Statistic = $Mailbox | Get-ExchangeMailboxStatistics
@@ -88,12 +89,12 @@ Function Get-MailboxMoveOnPremisesReportHelper {
             }
             if ($Mailbox.ForwardingAddress) {
                 $Distinguished = Convert-CanonicalToDistinguished -CanonicalName $Mailbox.ForwardingAddress
-                $PSHash.Add('ForwardingAddress', $RecHash[$Distinguished].PrimarySmtpAddress)
-                $PSHash.Add('ForwardingRecipientType', $RecHash[$Distinguished].RecipientTypeDetails)
+                $PSHash['ForwardingAddress'] = $RecHash[$Distinguished].PrimarySmtpAddress
+                $PSHash['ForwardingRecipientType'] = $RecHash[$Distinguished].RecipientTypeDetails
             }
             else {
-                $PSHash.Add('ForwardingAddress', '')
-                $PSHash.Add('ForwardingRecipientType', '')
+                $PSHash['ForwardingAddress'] = ''
+                $PSHash['ForwardingRecipientType'] = ''
             }
             New-Object -TypeName PSObject -Property $PSHash
         }
@@ -435,7 +436,7 @@ function Get-ADHash {
     $UserList = $ADUsers.where( { $_.UserPrincipalName })
     foreach ($User in $UserList) {
         $UserHash[$User.UserPrincipalName] = @{
-            Department     = $User.GetUnderlyingObject()| Select-Object -ExpandProperty Department
+            Department     = $User.GetUnderlyingObject() | Select-Object -ExpandProperty Department
             Enabled        = $User.Enabled
             SamAccountName = $User.SamAccountName
         }
