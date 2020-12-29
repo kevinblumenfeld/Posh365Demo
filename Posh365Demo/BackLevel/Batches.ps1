@@ -1,6 +1,6 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
-Function Get-MailboxMoveOnPremisesMailboxReport {
+function Get-MailboxMoveOnPremisesMailboxReport {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -40,7 +40,7 @@ Function Get-MailboxMoveOnPremisesMailboxReport {
     }
 }
 
-Function Get-MailboxMoveOnPremisesReportHelper {
+function Get-MailboxMoveOnPremisesReportHelper {
     [CmdletBinding()]
     param (
 
@@ -184,7 +184,7 @@ function Convert-CanonicalToDistinguished {
     }
 }
 
-Function Get-MailboxMoveRecipientHash {
+function Get-MailboxMoveRecipientHash {
     [CmdletBinding()]
     param
     (
