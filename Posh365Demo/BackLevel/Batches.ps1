@@ -49,7 +49,10 @@ function Get-MailboxMoveOnPremisesReportHelper {
         $RecHash = Get-MailboxMoveRecipientHash
         $ADHash = Get-ADHash
         $MailboxList = Get-Mailbox -ResultSize Unlimited -IgnoreDefaultScope
-        $MailboxList = $MailboxList | Where-Object { $_.RecipientTypeDetails -ne 'DiscoveryMailbox' }
+        $MailboxList = $MailboxList | Where-Object {
+            $_.RecipientTypeDetails -ne 'DiscoveryMailbox' -and
+            $_.UserPrincipalName
+        }
         foreach ($Mailbox in $MailboxList) {
             Write-Verbose "Mailbox`t$($Mailbox.DisplayName)"
             $Statistic = $Mailbox | Get-ExchangeMailboxStatistics
